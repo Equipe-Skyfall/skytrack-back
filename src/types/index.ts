@@ -5,7 +5,7 @@ export interface HealthCheckResponse {
   version: string;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
