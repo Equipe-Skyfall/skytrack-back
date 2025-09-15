@@ -1,12 +1,12 @@
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '../../generated/prisma';
 import { MongoDataService, MongoSensorData } from './mongoDataService';
 
-export interface SimpleMigrationConfig {
+export interface MigrationConfig {
   batchSize: number;
-  syncName: string; // Name for this sync process (e.g., "main_sync")
+  syncName: string; 
 }
 
-export interface SimpleMigrationStats {
+export interface MigrationStats {
   totalProcessed: number;
   successfulMigrations: number;
   failedMigrations: number;
@@ -18,26 +18,27 @@ export interface SimpleMigrationStats {
   duration?: number;
 }
 
-export class SimplifiedMigrationService {
+export class MigrationService {
   private prisma: PrismaClient;
   private mongoService: MongoDataService;
-  private config: SimpleMigrationConfig;
+  private config: MigrationConfig;
 
   constructor(
     prisma: PrismaClient,
-    mongoService: MongoDataService,
-    config: SimpleMigrationConfig = {
-      batchSize: 100,
-      syncName: 'main_sync',
-    }
+    mongoService?: MongoDataService,
+    config?: Partial<MigrationConfig>
   ) {
     this.prisma = prisma;
-    this.mongoService = mongoService;
-    this.config = config;
+    this.mongoService = mongoService || new MongoDataService();
+    this.config = {
+      batchSize: parseInt(process.env.MIGRATION_BATCH_SIZE || '100'),
+      syncName: process.env.MIGRATION_SYNC_NAME || 'main_sync',
+      ...config
+    };
   }
 
-  async migrate(): Promise<SimpleMigrationStats> {
-    const stats: SimpleMigrationStats = {
+  async migrate(): Promise<MigrationStats> {
+    const stats: MigrationStats = {
       totalProcessed: 0,
       successfulMigrations: 0,
       failedMigrations: 0,
@@ -50,14 +51,14 @@ export class SimplifiedMigrationService {
     try {
       console.log('Starting simplified MongoDB to PostgreSQL migration...');
 
-      // Connect to MongoDB
+      // Conecta no MongoDB
       await this.mongoService.connect();
 
-      // Get last sync timestamp from database
+      // pega a timestamp do ultimo migration from database
       const lastSyncTimestamp = await this.getLastSyncTimestamp();
       console.log(`Last sync was at: ${new Date(lastSyncTimestamp * 1000).toISOString()}`);
 
-      // Get new data since last sync
+      // pega apenas os novos dados A PARTIR DA ULTIMA SINCRONIZAÇÃO
       const newData = await this.mongoService.fetchDataSinceTimestamp(lastSyncTimestamp);
       stats.totalProcessed = newData.length;
 
@@ -66,14 +67,14 @@ export class SimplifiedMigrationService {
         return this.finalizeMigration(stats);
       }
 
-      // Get station MAC address mappings
+      // pega o mac address para mapear nas estações corretas
       const stationMappings = await this.getStationMacAddressMappings();
       console.log(`Found ${stationMappings.size} stations with MAC addresses`);
 
-      // Process data in batches
+      // Processa os dados em lotes
       await this.processBatches(newData, stationMappings, stats);
 
-      // Update sync timestamp with the latest record timestamp
+      // atualiza o timestamp da ultima sync
       if (newData.length > 0) {
         const latestTimestamp = Math.max(...newData.map(d => d.unixtime));
         await this.updateLastSyncTimestamp(latestTimestamp);
@@ -95,7 +96,7 @@ export class SimplifiedMigrationService {
     });
 
     if (!migrationState) {
-      // First run - start from timestamp 0 to capture all historical data
+      // se for a primeira vez ele pega todos dos dados
       console.log('First migration run - starting from timestamp 0 (all data)');
       return 0;
     }
@@ -137,7 +138,7 @@ export class SimplifiedMigrationService {
   private async processBatches(
     data: MongoSensorData[],
     stationMappings: Map<string, string>,
-    stats: SimpleMigrationStats
+    stats: MigrationStats
   ): Promise<void> {
     // Process in batches
     for (let i = 0; i < data.length; i += this.config.batchSize) {
@@ -151,7 +152,7 @@ export class SimplifiedMigrationService {
   private async processBatch(
     batch: MongoSensorData[],
     stationMappings: Map<string, string>,
-    stats: SimpleMigrationStats
+    stats: MigrationStats
   ): Promise<void> {
     const sensorReadings = [];
 
@@ -167,12 +168,12 @@ export class SimplifiedMigrationService {
 
         stats.stationsMatched++;
 
-        // Transform MongoDB data to PostgreSQL format
+        // transforma os dados do mongodb em dados compativeis com o postgres
         const sensorReading = {
           stationId,
           timestamp: new Date(mongoRecord.unixtime * 1000),
           mongoId: mongoRecord._id,
-          sensorData: this.extractSensorData(mongoRecord),
+          readings: this.extractSensorData(mongoRecord), // guarda os dados dos sensores no padrao JSONB
         };
 
         sensorReadings.push(sensorReading);
@@ -182,7 +183,7 @@ export class SimplifiedMigrationService {
       }
     }
 
-    // Insert all new records at once
+    // Insere as novas leituras
     if (sensorReadings.length > 0) {
       try {
         await this.prisma.sensorReading.createMany({
@@ -199,7 +200,7 @@ export class SimplifiedMigrationService {
   }
 
   private extractSensorData(mongoRecord: MongoSensorData): any {
-    // Extract all sensor data except the core fields
+    // Extrai os dados dos sensores
     const sensorData: any = {};
 
     for (const [key, value] of Object.entries(mongoRecord)) {
@@ -212,11 +213,11 @@ export class SimplifiedMigrationService {
     return sensorData;
   }
 
-  private finalizeMigration(stats: SimpleMigrationStats): SimpleMigrationStats {
+  private finalizeMigration(stats: MigrationStats): MigrationStats {
     stats.endTime = new Date();
     stats.duration = stats.endTime.getTime() - stats.startTime.getTime();
 
-    console.log('\n=== SIMPLIFIED MIGRATION COMPLETED ===');
+    console.log('\n=== MIGRATION COMPLETED ===');
     console.log(`Total processed: ${stats.totalProcessed}`);
     console.log(`Successful migrations: ${stats.successfulMigrations}`);
     console.log(`Failed migrations: ${stats.failedMigrations}`);

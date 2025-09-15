@@ -19,8 +19,10 @@ export class StationFactory implements IStationFactory {
     return {
       id: randomUUID(),
       name: this.sanitizeName(data.name),
+      macAddress: this.sanitizeMacAddress(data.macAddress),
       latitude: this.validateLatitude(data.latitude),
       longitude: this.validateLongitude(data.longitude),
+      address: this.sanitizeAddress(data.address),
       description: this.sanitizeDescription(data.description),
       status: data.status || StationStatus.ACTIVE,
       createdAt: now,
@@ -100,11 +102,37 @@ export class StationFactory implements IStationFactory {
     return longitude;
   }
 
-  private sanitizeDescription(description?: string): string | undefined {
-    if (!description) return undefined;
+  private sanitizeMacAddress(macAddress?: string | null): string | null {
+    if (!macAddress) return null;
+
+    const sanitized = macAddress.trim();
+    if (sanitized.length === 0) return null;
+
+    if (sanitized.length > 50) {
+      throw new Error('MAC address must be 50 characters or less');
+    }
+
+    return sanitized;
+  }
+
+  private sanitizeAddress(address?: string | null): string | null {
+    if (!address) return null;
+
+    const sanitized = address.trim();
+    if (sanitized.length === 0) return null;
+
+    if (sanitized.length > 255) {
+      throw new Error('Address must be 255 characters or less');
+    }
+
+    return sanitized;
+  }
+
+  private sanitizeDescription(description?: string | null): string | null {
+    if (!description) return null;
 
     const sanitized = description.trim();
-    if (sanitized.length === 0) return undefined;
+    if (sanitized.length === 0) return null;
 
     if (sanitized.length > 500) {
       throw new Error('Description must be 500 characters or less');

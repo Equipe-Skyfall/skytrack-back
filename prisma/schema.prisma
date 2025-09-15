@@ -17,9 +17,9 @@ model MeteorologicalStation {
   status         MeteorologicalStationStatus @default(ACTIVE)
   createdAt      DateTime                    @default(now()) @map("created_at")
   updatedAt      DateTime                    @updatedAt @map("updated_at")
-  address        String?                     @db.VarChar(255)
-  macAddress     String?                     @unique @map("mac_address") @db.VarChar(50)
-  sensorReadings SensorReading[]
+  address              String?                     @db.VarChar(255)
+  macAddress           String?                     @unique @map("mac_address") @db.VarChar(50)
+  sensorReadings       SensorReading[]
 
   @@index([status])
   @@index([latitude, longitude])
@@ -30,19 +30,21 @@ model MeteorologicalStation {
 
 model SensorReading {
   id         String                @id @default(uuid())
-  stationId  String                @map("station_id")
+  stationId  String                @map("station_id")  // This is the station UUID from MAC address lookup
   timestamp  DateTime
-  mongoId    String                @map("mongo_id")
+  mongoId    String                @unique @map("mongo_id")
+  readings   Json                  // JSONB field for flexible sensor data storage
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
-  sensorData Json
   station    MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@index([stationId])
   @@index([timestamp])
   @@index([stationId, timestamp])
+  @@index([mongoId])
   @@map("sensor_readings")
 }
+
 
 model MigrationState {
   id                String   @id @default(uuid())

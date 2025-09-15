@@ -165,8 +165,19 @@ export class StationService implements IStationService {
       // Create the station entity using factory (with validation)
       const stationEntity = stationFactory.createStation(stationData);
 
+      // Convert back to DTO for repository
+      const stationCreateData: ICreateStationDTO = {
+        name: stationEntity.name,
+        macAddress: stationEntity.macAddress,
+        latitude: stationEntity.latitude,
+        longitude: stationEntity.longitude,
+        address: stationEntity.address,
+        description: stationEntity.description,
+        status: stationEntity.status,
+      };
+
       // Save to repository
-      const station = await this.stationRepository.create(stationEntity);
+      const station = await this.stationRepository.create(stationCreateData);
 
       return {
         success: true,

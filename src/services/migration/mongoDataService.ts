@@ -17,9 +17,9 @@ export class MongoDataService {
   private readonly collectionName: string;
 
   constructor(
-    connectionString: string = 'mongodb+srv://fabiomatsumura:o0dY4HhrNHA65irC@cluster0.vk1vk0a.mongodb.net/?retryWrites=true&w=majority&appName=cluster0',
-    databaseName: string = 'dadosClima',
-    collectionName: string = 'clima'
+    connectionString: string = process.env.MONGO_CONNECTION_STRING || '',
+    databaseName: string = process.env.MONGO_DATABASE || 'dadosClima',
+    collectionName: string = process.env.MONGO_COLLECTION || 'clima'
   ) {
     this.connectionString = connectionString;
     this.databaseName = databaseName;

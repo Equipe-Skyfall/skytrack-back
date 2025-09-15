@@ -260,7 +260,7 @@ export class StationRepository implements IStationRepository {
     return {
       id: station.id,
       name: station.name,
-      macAddress: station.macAddress || undefined,
+      macAddress: station.macAddress,
       latitude: station.latitude.toNumber(),
       longitude: station.longitude.toNumber(),
       address: station.address || undefined,
