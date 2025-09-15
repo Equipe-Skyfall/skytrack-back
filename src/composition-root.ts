@@ -1,3 +1,4 @@
+import { PrismaClient } from './generated/prisma';
 import { prismaConnection } from './config/prisma';
 import { StationRepository, IStationRepository } from './repositories/stationRepository';
 import { StationService } from './services/stationService';
@@ -10,6 +11,7 @@ export interface IDependencies {
   stationController: IStationController;
   stationService: IStationService;
   stationRepository: IStationRepository;
+  prismaClient: PrismaClient;
 }
 
 export async function createDependencies(): Promise<IDependencies> {
@@ -29,6 +31,7 @@ export async function createDependencies(): Promise<IDependencies> {
       stationController,
       stationService,
       stationRepository,
+      prismaClient,
     };
   } catch (error) {
     console.error('❌ Dependency wiring failed:', error);
