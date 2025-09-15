@@ -32,6 +32,13 @@ export class DuplicateStationNameError extends Error {
   }
 }
 
+export class DuplicateMacAddressError extends Error {
+  constructor(macAddress: string) {
+    super(`Station with MAC address '${macAddress}' already exists`);
+    this.name = 'DuplicateMacAddressError';
+  }
+}
+
 // Service interface following Dependency Inversion Principle
 export interface IStationService {
   getAllStations(queryParams?: IStationQueryParams): Promise<ApiResponse<{
@@ -41,6 +48,7 @@ export interface IStationService {
     limit?: number;
   }>>;
   getStationById(id: string): Promise<ApiResponse<IStation>>;
+  getStationByMacAddress?(macAddress: string): Promise<ApiResponse<IStation>>;
   createStation(stationData: ICreateStationDTO): Promise<ApiResponse<IStation>>;
   updateStation(id: string, stationData: IUpdateStationDTO): Promise<ApiResponse<IStation>>;
   deleteStation(id: string): Promise<ApiResponse<null>>;
@@ -143,6 +151,17 @@ export class StationService implements IStationService {
         };
       }
 
+      // Check for duplicate MAC address if provided
+      if (stationData.macAddress && this.stationRepository.existsByMacAddress) {
+        const macExists = await this.stationRepository.existsByMacAddress(stationData.macAddress);
+        if (macExists) {
+          return {
+            success: false,
+            error: `Station with MAC address '${stationData.macAddress}' already exists`,
+          };
+        }
+      }
+
       // Create the station entity using factory (with validation)
       const stationEntity = stationFactory.createStation(stationData);
 
@@ -153,6 +172,44 @@ export class StationService implements IStationService {
         success: true,
         data: station,
         message: 'Station created successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  async getStationByMacAddress(macAddress: string): Promise<ApiResponse<IStation>> {
+    try {
+      if (!macAddress || !macAddress.trim()) {
+        return {
+          success: false,
+          error: 'MAC address is required',
+        };
+      }
+
+      if (!this.stationRepository.findByMacAddress) {
+        return {
+          success: false,
+          error: 'MAC address lookup not supported by this repository',
+        };
+      }
+
+      const station = await this.stationRepository.findByMacAddress(macAddress.trim());
+
+      if (!station) {
+        return {
+          success: false,
+          error: `Station with MAC address '${macAddress}' not found`,
+        };
+      }
+
+      return {
+        success: true,
+        data: station,
+        message: 'Station retrieved successfully',
       };
     } catch (error) {
       return {
@@ -188,6 +245,17 @@ export class StationService implements IStationService {
           return {
             success: false,
             error: `Station with name '${stationData.name}' already exists`,
+          };
+        }
+      }
+
+      // Check for duplicate MAC address (if MAC address is being updated)
+      if (stationData.macAddress && this.stationRepository.existsByMacAddress) {
+        const macExists = await this.stationRepository.existsByMacAddress(stationData.macAddress, id);
+        if (macExists) {
+          return {
+            success: false,
+            error: `Station with MAC address '${stationData.macAddress}' already exists`,
           };
         }
       }

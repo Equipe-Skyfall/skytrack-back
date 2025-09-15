@@ -1,5 +1,4 @@
-import { Pool } from 'pg';
-import { randomUUID } from 'crypto';
+import { PrismaClient, MeteorologicalStation, MeteorologicalStationStatus, Prisma } from '../generated/prisma';
 import {
   IStation,
   ICreateStationDTO,
@@ -7,8 +6,6 @@ import {
   IStationQueryParams,
   StationStatus,
 } from '../types/station';
-import { IDatabaseConnection } from '../config/database';
-import { stationFactory } from '../factories/stationFactory';
 
 // Repository interface following Dependency Inversion Principle
 export interface IStationRepository {
@@ -18,270 +15,284 @@ export interface IStationRepository {
   update(id: string, stationData: IUpdateStationDTO): Promise<IStation | null>;
   delete(id: string): Promise<boolean>;
   existsByName(name: string, excludeId?: string): Promise<boolean>;
+  existsByMacAddress?(macAddress: string, excludeId?: string): Promise<boolean>;
+  findByMacAddress?(macAddress: string): Promise<IStation | null>;
   count(queryParams?: IStationQueryParams): Promise<number>;
 }
 
 // Station Repository implementation following Repository Pattern
 export class StationRepository implements IStationRepository {
-  constructor(private databaseConnection: IDatabaseConnection) {}
-
-  private get pool(): Pool {
-    return this.databaseConnection.getPool();
-  }
+  constructor(private prisma: PrismaClient) {}
 
   async findAll(queryParams?: IStationQueryParams): Promise<IStation[]> {
-    let query = 'SELECT * FROM meteorological_stations WHERE 1=1';
-    const values: any[] = [];
-    let valueIndex = 1;
+    const where: Prisma.MeteorologicalStationWhereInput = {};
 
-    // Build dynamic query based on parameters
+    // Build where conditions based on query parameters
     if (queryParams?.name) {
-      query += ` AND name ILIKE $${valueIndex}`;
-      values.push(`%${queryParams.name}%`);
-      valueIndex++;
+      where.name = {
+        contains: queryParams.name,
+        mode: 'insensitive',
+      };
     }
 
     if (queryParams?.status) {
-      query += ` AND status = $${valueIndex}`;
-      values.push(queryParams.status);
-      valueIndex++;
+      where.status = this.mapToMeteorologicalStationStatus(queryParams.status);
     }
 
+    // Build latitude filter
+    const latitudeFilter: any = {};
     if (queryParams?.minLatitude !== undefined) {
-      query += ` AND latitude >= $${valueIndex}`;
-      values.push(queryParams.minLatitude);
-      valueIndex++;
+      latitudeFilter.gte = queryParams.minLatitude;
     }
-
     if (queryParams?.maxLatitude !== undefined) {
-      query += ` AND latitude <= $${valueIndex}`;
-      values.push(queryParams.maxLatitude);
-      valueIndex++;
+      latitudeFilter.lte = queryParams.maxLatitude;
+    }
+    if (Object.keys(latitudeFilter).length > 0) {
+      where.latitude = latitudeFilter;
     }
 
+    // Build longitude filter
+    const longitudeFilter: any = {};
     if (queryParams?.minLongitude !== undefined) {
-      query += ` AND longitude >= $${valueIndex}`;
-      values.push(queryParams.minLongitude);
-      valueIndex++;
+      longitudeFilter.gte = queryParams.minLongitude;
     }
-
     if (queryParams?.maxLongitude !== undefined) {
-      query += ` AND longitude <= $${valueIndex}`;
-      values.push(queryParams.maxLongitude);
-      valueIndex++;
+      longitudeFilter.lte = queryParams.maxLongitude;
+    }
+    if (Object.keys(longitudeFilter).length > 0) {
+      where.longitude = longitudeFilter;
     }
 
-    // Add ordering
-    query += ' ORDER BY created_at DESC';
+    const stations = await this.prisma.meteorologicalStation.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: queryParams?.limit || undefined,
+      skip: queryParams?.offset || undefined,
+    });
 
-    // Add pagination
-    if (queryParams?.limit) {
-      query += ` LIMIT $${valueIndex}`;
-      values.push(queryParams.limit);
-      valueIndex++;
-    }
-
-    if (queryParams?.offset) {
-      query += ` OFFSET $${valueIndex}`;
-      values.push(queryParams.offset);
-    }
-
-    const result = await this.pool.query(query, values);
-    return result.rows.map(row => stationFactory.createStationFromData(row));
+    return stations.map((station) => this.mapToIStation(station));
   }
 
   async findById(id: string): Promise<IStation | null> {
-    const query = 'SELECT * FROM meteorological_stations WHERE id = $1';
-    const result = await this.pool.query(query, [id]);
+    const station = await this.prisma.meteorologicalStation.findUnique({
+      where: { id },
+    });
 
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return stationFactory.createStationFromData(result.rows[0]);
+    return station ? this.mapToIStation(station) : null;
   }
 
   async create(stationData: ICreateStationDTO): Promise<IStation> {
-    const id = randomUUID();
-    const now = new Date();
-    const status = stationData.status || StationStatus.ACTIVE;
+    const station = await this.prisma.meteorologicalStation.create({
+      data: {
+        name: stationData.name.trim(),
+        macAddress: stationData.macAddress?.trim() || null,
+        latitude: stationData.latitude,
+        longitude: stationData.longitude,
+        address: stationData.address?.trim() || null,
+        description: stationData.description?.trim() || null,
+        status: stationData.status
+          ? this.mapToMeteorologicalStationStatus(stationData.status)
+          : MeteorologicalStationStatus.ACTIVE,
+      },
+    });
 
-    const query = `
-      INSERT INTO meteorological_stations
-      (id, name, latitude, longitude, description, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `;
-
-    const values = [
-      id,
-      stationData.name.trim(),
-      stationData.latitude,
-      stationData.longitude,
-      stationData.description?.trim() || null,
-      status,
-      now,
-      now,
-    ];
-
-    const result = await this.pool.query(query, values);
-    return stationFactory.createStationFromData(result.rows[0]);
+    return this.mapToIStation(station);
   }
 
   async update(id: string, stationData: IUpdateStationDTO): Promise<IStation | null> {
-    // First check if station exists
-    const existingStation = await this.findById(id);
-    if (!existingStation) {
-      return null;
+    try {
+      const data: Prisma.MeteorologicalStationUpdateInput = {};
+
+      if (stationData.name !== undefined) {
+        data.name = stationData.name.trim();
+      }
+
+      if (stationData.macAddress !== undefined) {
+        data.macAddress = stationData.macAddress?.trim() || null;
+      }
+
+      if (stationData.latitude !== undefined) {
+        data.latitude = stationData.latitude;
+      }
+
+      if (stationData.longitude !== undefined) {
+        data.longitude = stationData.longitude;
+      }
+
+      if (stationData.address !== undefined) {
+        data.address = stationData.address?.trim() || null;
+      }
+
+      if (stationData.description !== undefined) {
+        data.description = stationData.description?.trim() || null;
+      }
+
+      if (stationData.status !== undefined) {
+        data.status = this.mapToMeteorologicalStationStatus(stationData.status);
+      }
+
+      const station = await this.prisma.meteorologicalStation.update({
+        where: { id },
+        data,
+      });
+
+      return this.mapToIStation(station);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found
+          return null;
+        }
+      }
+      throw error;
     }
-
-    const updateFields: string[] = [];
-    const values: any[] = [];
-    let valueIndex = 1;
-
-    // Build dynamic update query
-    if (stationData.name !== undefined) {
-      updateFields.push(`name = $${valueIndex}`);
-      values.push(stationData.name.trim());
-      valueIndex++;
-    }
-
-    if (stationData.latitude !== undefined) {
-      updateFields.push(`latitude = $${valueIndex}`);
-      values.push(stationData.latitude);
-      valueIndex++;
-    }
-
-    if (stationData.longitude !== undefined) {
-      updateFields.push(`longitude = $${valueIndex}`);
-      values.push(stationData.longitude);
-      valueIndex++;
-    }
-
-    if (stationData.description !== undefined) {
-      updateFields.push(`description = $${valueIndex}`);
-      values.push(stationData.description?.trim() || null);
-      valueIndex++;
-    }
-
-    if (stationData.status !== undefined) {
-      updateFields.push(`status = $${valueIndex}`);
-      values.push(stationData.status);
-      valueIndex++;
-    }
-
-    if (updateFields.length === 0) {
-      return existingStation; // No changes to make
-    }
-
-    // Add updated_at field
-    updateFields.push(`updated_at = $${valueIndex}`);
-    values.push(new Date());
-    valueIndex++;
-
-    // Add ID for WHERE clause
-    values.push(id);
-
-    const query = `
-      UPDATE meteorological_stations
-      SET ${updateFields.join(', ')}
-      WHERE id = $${valueIndex}
-      RETURNING *
-    `;
-
-    const result = await this.pool.query(query, values);
-    return stationFactory.createStationFromData(result.rows[0]);
   }
 
   async delete(id: string): Promise<boolean> {
-    const query = 'DELETE FROM meteorological_stations WHERE id = $1';
-    const result = await this.pool.query(query, [id]);
-    return result.rowCount !== null && result.rowCount > 0;
+    try {
+      await this.prisma.meteorologicalStation.delete({
+        where: { id },
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record not found
+          return false;
+        }
+      }
+      throw error;
+    }
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
-    let query = 'SELECT id FROM meteorological_stations WHERE name = $1';
-    const values: any[] = [name.trim()];
+    const where: Prisma.MeteorologicalStationWhereInput = {
+      name: name.trim(),
+    };
 
     if (excludeId) {
-      query += ' AND id != $2';
-      values.push(excludeId);
+      where.NOT = {
+        id: excludeId,
+      };
     }
 
-    const result = await this.pool.query(query, values);
-    return result.rows.length > 0;
+    const count = await this.prisma.meteorologicalStation.count({
+      where,
+    });
+
+    return count > 0;
+  }
+
+  async existsByMacAddress(macAddress: string, excludeId?: string): Promise<boolean> {
+    const where: Prisma.MeteorologicalStationWhereInput = {
+      macAddress: macAddress.trim(),
+    };
+
+    if (excludeId) {
+      where.NOT = {
+        id: excludeId,
+      };
+    }
+
+    const count = await this.prisma.meteorologicalStation.count({
+      where,
+    });
+
+    return count > 0;
+  }
+
+  async findByMacAddress(macAddress: string): Promise<IStation | null> {
+    const station = await this.prisma.meteorologicalStation.findUnique({
+      where: { macAddress: macAddress.trim() },
+    });
+
+    return station ? this.mapToIStation(station) : null;
   }
 
   async count(queryParams?: IStationQueryParams): Promise<number> {
-    let query = 'SELECT COUNT(*) as total FROM meteorological_stations WHERE 1=1';
-    const values: any[] = [];
-    let valueIndex = 1;
+    const where: Prisma.MeteorologicalStationWhereInput = {};
 
-    // Apply same filters as findAll but for count
+    // Apply same filters as findAll
     if (queryParams?.name) {
-      query += ` AND name ILIKE $${valueIndex}`;
-      values.push(`%${queryParams.name}%`);
-      valueIndex++;
+      where.name = {
+        contains: queryParams.name,
+        mode: 'insensitive',
+      };
     }
 
     if (queryParams?.status) {
-      query += ` AND status = $${valueIndex}`;
-      values.push(queryParams.status);
-      valueIndex++;
+      where.status = this.mapToMeteorologicalStationStatus(queryParams.status);
     }
 
+    // Build latitude filter
+    const latitudeFilter: any = {};
     if (queryParams?.minLatitude !== undefined) {
-      query += ` AND latitude >= $${valueIndex}`;
-      values.push(queryParams.minLatitude);
-      valueIndex++;
+      latitudeFilter.gte = queryParams.minLatitude;
     }
-
     if (queryParams?.maxLatitude !== undefined) {
-      query += ` AND latitude <= $${valueIndex}`;
-      values.push(queryParams.maxLatitude);
-      valueIndex++;
+      latitudeFilter.lte = queryParams.maxLatitude;
+    }
+    if (Object.keys(latitudeFilter).length > 0) {
+      where.latitude = latitudeFilter;
     }
 
+    // Build longitude filter
+    const longitudeFilter: any = {};
     if (queryParams?.minLongitude !== undefined) {
-      query += ` AND longitude >= $${valueIndex}`;
-      values.push(queryParams.minLongitude);
-      valueIndex++;
+      longitudeFilter.gte = queryParams.minLongitude;
     }
-
     if (queryParams?.maxLongitude !== undefined) {
-      query += ` AND longitude <= $${valueIndex}`;
-      values.push(queryParams.maxLongitude);
+      longitudeFilter.lte = queryParams.maxLongitude;
+    }
+    if (Object.keys(longitudeFilter).length > 0) {
+      where.longitude = longitudeFilter;
     }
 
-    const result = await this.pool.query(query, values);
-    return parseInt(result.rows[0].total);
+    return await this.prisma.meteorologicalStation.count({
+      where,
+    });
   }
 
+  // Helper method to map Prisma model to IStation interface
+  private mapToIStation(station: MeteorologicalStation): IStation {
+    return {
+      id: station.id,
+      name: station.name,
+      macAddress: station.macAddress || undefined,
+      latitude: station.latitude.toNumber(),
+      longitude: station.longitude.toNumber(),
+      address: station.address || undefined,
+      description: station.description || undefined,
+      status: this.mapToStationStatus(station.status),
+      createdAt: station.createdAt,
+      updatedAt: station.updatedAt,
+    };
+  }
 
-  // Initialize database table (for development purposes)
-  async initializeTable(): Promise<void> {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS meteorological_stations (
-        id UUID PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        latitude DECIMAL(10, 8) NOT NULL,
-        longitude DECIMAL(11, 8) NOT NULL,
-        description TEXT,
-        status VARCHAR(20) NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE')),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(name)
-      );
-    `;
+  // Helper method to map from StationStatus to MeteorologicalStationStatus
+  private mapToMeteorologicalStationStatus(status: StationStatus): MeteorologicalStationStatus {
+    switch (status) {
+      case StationStatus.ACTIVE:
+        return MeteorologicalStationStatus.ACTIVE;
+      case StationStatus.INACTIVE:
+        return MeteorologicalStationStatus.INACTIVE;
+      default:
+        return MeteorologicalStationStatus.ACTIVE;
+    }
+  }
 
-    const createIndexQuery = `
-      CREATE INDEX IF NOT EXISTS idx_meteorological_stations_status ON meteorological_stations(status);
-      CREATE INDEX IF NOT EXISTS idx_meteorological_stations_coordinates ON meteorological_stations(latitude, longitude);
-      CREATE INDEX IF NOT EXISTS idx_meteorological_stations_name ON meteorological_stations(name);
-    `;
-
-    await this.pool.query(createTableQuery);
-    await this.pool.query(createIndexQuery);
+  // Helper method to map from MeteorologicalStationStatus to StationStatus
+  private mapToStationStatus(status: MeteorologicalStationStatus): StationStatus {
+    switch (status) {
+      case MeteorologicalStationStatus.ACTIVE:
+        return StationStatus.ACTIVE;
+      case MeteorologicalStationStatus.INACTIVE:
+        return StationStatus.INACTIVE;
+      default:
+        return StationStatus.ACTIVE;
+    }
   }
 }
 

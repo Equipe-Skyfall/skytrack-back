@@ -4,11 +4,7 @@ export interface MongoSensorData {
   _id: string;
   uuid: string;
   unixtime: number;
-  temperatura?: number;
-  umidade?: number;
-  chuva?: number;
-  pressao?: number;
-  [key: string]: any; // Allow for flexible sensor data
+  [key: string]: any; // All sensor data is flexible - temperature, humidity, etc.
 }
 
 export class MongoDataService {
@@ -102,6 +98,25 @@ export class MongoDataService {
       return data;
     } catch (error) {
       console.error(`Error fetching data for station ${uuid}:`, error);
+      throw error;
+    }
+  }
+
+  async fetchDataSinceTimestamp(sinceTimestamp: number): Promise<MongoSensorData[]> {
+    if (!this.collection) {
+      throw new Error('Not connected to MongoDB. Call connect() first.');
+    }
+
+    try {
+      console.log(`Fetching data since timestamp: ${sinceTimestamp} (${new Date(sinceTimestamp * 1000).toISOString()})`);
+      const data = await this.collection
+        .find({ unixtime: { $gt: sinceTimestamp } })
+        .sort({ unixtime: 1 }) // Oldest first for processing
+        .toArray();
+      console.log(`Found ${data.length} new documents since last sync`);
+      return data;
+    } catch (error) {
+      console.error('Error fetching data since timestamp:', error);
       throw error;
     }
   }

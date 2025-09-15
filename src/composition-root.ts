@@ -1,8 +1,7 @@
 import { prismaConnection } from './config/prisma';
-import { PrismaStationRepository } from './repositories/prismaStationRepository';
+import { StationRepository, IStationRepository } from './repositories/stationRepository';
 import { StationService } from './services/stationService';
 import { StationController } from './controllers/stationController';
-import { IStationRepository } from './repositories/stationRepository';
 import { IStationService } from './services/stationService';
 import { IStationController } from './controllers/stationController';
 
@@ -20,7 +19,7 @@ export async function createDependencies(): Promise<IDependencies> {
 
     // Create dependencies in order (bottom-up)
     const prismaClient = prismaConnection.getClient();
-    const stationRepository = new PrismaStationRepository(prismaClient);
+    const stationRepository = new StationRepository(prismaClient);
     const stationService = new StationService(stationRepository);
     const stationController = new StationController(stationService);
 
