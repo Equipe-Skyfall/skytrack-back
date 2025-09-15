@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Meteorological Station model
+model MeteorologicalStation {
+  id          String                     @id @default(uuid())
+  name        String                     @unique @db.VarChar(100)
+  latitude    Decimal                    @db.Decimal(10, 8)
+  longitude   Decimal                    @db.Decimal(11, 8)
+  address     String?                    @db.VarChar(255)
+  description String?                    @db.Text
+  status      MeteorologicalStationStatus @default(ACTIVE)
+  createdAt   DateTime                   @default(now()) @map("created_at")
+  updatedAt   DateTime                   @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([name])
+  @@map("meteorological_stations")
+}
+
+// Station status enum
+enum MeteorologicalStationStatus {
+  ACTIVE
+  INACTIVE
+}

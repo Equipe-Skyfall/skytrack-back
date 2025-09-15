@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import healthRoutes from './healthRoutes';
+import createStationRoutes from './stationRoutes';
+import { IDependencies } from '../composition-root';
 
-const router = Router();
+const createRoutes = (dependencies: IDependencies): Router => {
+  const router = Router();
 
-router.use(healthRoutes);
+  router.use(healthRoutes);
+  router.use(createStationRoutes(dependencies.stationController));
 
-export default router;
+  return router;
+};
+
+export default createRoutes;
