@@ -1,5 +1,5 @@
 import * as cron from 'node-cron';
-import { PrismaClient } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { MigrationService } from './migrationService';
 
 export interface SchedulerConfig {

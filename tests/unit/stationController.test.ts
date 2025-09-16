@@ -1,356 +1,208 @@
-import { Request, Response } from 'express';
-import { StationController } from '../../src/controllers/stationController';
-import { IStationService } from '../../src/services/stationService';
-import { StationStatus, IStation, ICreateStationDTO, IUpdateStationDTO } from '../../src/types/station';
-import { ApiResponse } from '../../src/types';
+import { Test, TestingModule } from '@nestjs/testing';
+import { StationsController } from '../../src/stations/stations.controller';
+import { StationsService } from '../../src/stations/stations.service';
+import { CreateStationDto, StationStatus } from '../../src/stations/dto/create-station.dto';
+import { UpdateStationDto } from '../../src/stations/dto/update-station.dto';
+import { StationDto } from '../../src/stations/dto/station.dto';
+import { StationsListDto } from '../../src/stations/dto/stations-list.dto';
+import { STATION_REPOSITORY_TOKEN } from '../../src/stations/interfaces/station-repository.interface';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 
-// Mock station data
-const mockStation: IStation = {
+const mockStation: StationDto = {
   id: '123e4567-e89b-12d3-a456-426614174000',
   name: 'Test Station',
   latitude: -23.5505,
   longitude: -46.6333,
+  address: 'Rua das Flores, 123 - São Paulo, SP',
   description: 'Test station description',
   status: StationStatus.ACTIVE,
+  macAddress: '00:11:22:33:44:55',
   createdAt: new Date('2023-12-01T10:30:00.000Z'),
   updatedAt: new Date('2023-12-01T10:30:00.000Z'),
 };
 
-const mockCreateStationDTO: ICreateStationDTO = {
+const mockCreateStationDto: CreateStationDto = {
   name: 'New Station',
   latitude: -22.5505,
   longitude: -45.6333,
   description: 'New station description',
   status: StationStatus.ACTIVE,
+  macAddress: '00:11:22:33:44:66',
 };
 
-const mockUpdateStationDTO: IUpdateStationDTO = {
+const mockUpdateStationDto: UpdateStationDto = {
   name: 'Updated Station',
   description: 'Updated description',
 };
 
-describe('Station Controller', () => {
-  let stationController: StationController;
-  let mockStationService: jest.Mocked<IStationService>;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+describe('StationsController', () => {
+  let controller: StationsController;
+  let service: StationsService;
 
-  beforeEach(() => {
-    mockStationService = {
-      getAllStations: jest.fn(),
-      getStationById: jest.fn(),
-      createStation: jest.fn(),
-      updateStation: jest.fn(),
-      deleteStation: jest.fn(),
+  beforeEach(async () => {
+    const mockRepository = {
+      findAll: jest.fn(),
+      findById: jest.fn(),
+      findByMacAddress: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      exists: jest.fn(),
     };
 
-    stationController = new StationController(mockStationService);
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [StationsController],
+      providers: [
+        StationsService,
+        {
+          provide: STATION_REPOSITORY_TOKEN,
+          useValue: mockRepository,
+        },
+      ],
+    }).compile();
 
-    mockRequest = {
-      params: {},
-      query: {},
-      body: {},
-    };
-
-    mockResponse = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
+    controller = module.get<StationsController>(StationsController);
+    service = module.get<StationsService>(StationsService);
   });
 
   describe('getAllStations', () => {
-    it('should return all stations with 200 status code', async () => {
-      const mockServiceResponse: ApiResponse<{
-        stations: IStation[];
-        total: number;
-        page?: number;
-        limit?: number;
-      }> = {
-        success: true,
-        data: {
-          stations: [mockStation],
+    it('should return all stations', async () => {
+      const mockResult: StationsListDto = {
+        data: [mockStation],
+        pagination: {
+          page: 1,
+          limit: 10,
           total: 1,
+          totalPages: 1,
         },
-        message: 'Retrieved 1 stations',
       };
 
-      mockStationService.getAllStations.mockResolvedValue(mockServiceResponse);
+      jest.spyOn(service, 'getAllStations').mockResolvedValue(mockResult);
 
-      await stationController.getAllStations(mockRequest as Request, mockResponse as Response);
+      const result = await controller.getAllStations(1, 10);
 
-      expect(mockStationService.getAllStations).toHaveBeenCalledWith({});
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      expect(service.getAllStations).toHaveBeenCalledWith(1, 10, undefined);
+      expect(result).toEqual(mockResult);
     });
 
     it('should handle query parameters correctly', async () => {
-      mockRequest.query = {
-        name: 'test',
-        status: 'ACTIVE',
-        limit: '10',
-        offset: '0',
-      };
-
-      const mockServiceResponse: ApiResponse<{
-        stations: IStation[];
-        total: number;
-        page?: number;
-        limit?: number;
-      }> = {
-        success: true,
-        data: {
-          stations: [],
+      const mockResult: StationsListDto = {
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 5,
           total: 0,
+          totalPages: 0,
         },
-        message: 'Retrieved 0 stations',
       };
 
-      mockStationService.getAllStations.mockResolvedValue(mockServiceResponse);
+      jest.spyOn(service, 'getAllStations').mockResolvedValue(mockResult);
 
-      await stationController.getAllStations(mockRequest as Request, mockResponse as Response);
+      await controller.getAllStations(1, 5, StationStatus.ACTIVE);
 
-      expect(mockStationService.getAllStations).toHaveBeenCalledWith({
-        name: 'test',
-        status: StationStatus.ACTIVE,
-        limit: 10,
-        offset: 0,
-      });
-    });
-
-    it('should return 400 on service error', async () => {
-      const mockServiceResponse: ApiResponse<{
-        stations: IStation[];
-        total: number;
-        page?: number;
-        limit?: number;
-      }> = {
-        success: false,
-        error: 'Invalid parameters',
-      };
-
-      mockStationService.getAllStations.mockResolvedValue(mockServiceResponse);
-
-      await stationController.getAllStations(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 500 on unexpected error', async () => {
-      mockStationService.getAllStations.mockRejectedValue(new Error('Database error'));
-
-      await stationController.getAllStations(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Internal server error',
-      });
+      expect(service.getAllStations).toHaveBeenCalledWith(1, 5, StationStatus.ACTIVE);
     });
   });
 
   describe('getStationById', () => {
-    beforeEach(() => {
-      mockRequest.params = { id: '123e4567-e89b-12d3-a456-426614174000' };
+    it('should return station by ID', async () => {
+      jest.spyOn(service, 'getStationById').mockResolvedValue(mockStation);
+
+      const result = await controller.getStationById('123e4567-e89b-12d3-a456-426614174000');
+
+      expect(service.getStationById).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
+      expect(result).toEqual(mockStation);
     });
 
-    it('should return station with 200 status code', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: true,
-        data: mockStation,
-        message: 'Station retrieved successfully',
-      };
+    it('should throw NotFoundException when station not found', async () => {
+      jest.spyOn(service, 'getStationById').mockRejectedValue(new NotFoundException('Station not found'));
 
-      mockStationService.getStationById.mockResolvedValue(mockServiceResponse);
+      await expect(
+        controller.getStationById('123e4567-e89b-12d3-a456-426614174000')
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 
-      await stationController.getStationById(mockRequest as Request, mockResponse as Response);
+  describe('getStationByMacAddress', () => {
+    it('should return station by MAC address', async () => {
+      jest.spyOn(service, 'getStationByMacAddress').mockResolvedValue(mockStation);
 
-      expect(mockStationService.getStationById).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      const result = await controller.getStationByMacAddress('00:11:22:33:44:55');
+
+      expect(service.getStationByMacAddress).toHaveBeenCalledWith('00:11:22:33:44:55');
+      expect(result).toEqual(mockStation);
     });
 
-    it('should return 404 when station not found', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: 'Station with ID 123e4567-e89b-12d3-a456-426614174000 not found',
-      };
+    it('should throw NotFoundException when station not found', async () => {
+      jest.spyOn(service, 'getStationByMacAddress').mockRejectedValue(new NotFoundException('Station not found'));
 
-      mockStationService.getStationById.mockResolvedValue(mockServiceResponse);
-
-      await stationController.getStationById(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 400 for invalid ID format', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: 'Invalid station ID format',
-      };
-
-      mockStationService.getStationById.mockResolvedValue(mockServiceResponse);
-
-      await stationController.getStationById(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      await expect(
+        controller.getStationByMacAddress('00:11:22:33:44:55')
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('createStation', () => {
-    beforeEach(() => {
-      mockRequest.body = mockCreateStationDTO;
+    it('should create a new station', async () => {
+      const newStation = { ...mockStation, ...mockCreateStationDto };
+      jest.spyOn(service, 'createStation').mockResolvedValue(newStation);
+
+      const result = await controller.createStation(mockCreateStationDto);
+
+      expect(service.createStation).toHaveBeenCalledWith(mockCreateStationDto);
+      expect(result).toEqual(newStation);
     });
 
-    it('should create station with 201 status code', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: true,
-        data: { ...mockStation, ...mockCreateStationDTO },
-        message: 'Station created successfully',
-      };
+    it('should throw BadRequestException on validation error', async () => {
+      jest.spyOn(service, 'createStation').mockRejectedValue(new BadRequestException('Validation failed'));
 
-      mockStationService.createStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.createStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockStationService.createStation).toHaveBeenCalledWith(mockCreateStationDTO);
-      expect(mockResponse.status).toHaveBeenCalledWith(201);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 400 on validation error', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: 'Validation failed: Name is required',
-      };
-
-      mockStationService.createStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.createStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 400 on duplicate name', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: "Station with name 'New Station' already exists",
-      };
-
-      mockStationService.createStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.createStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      await expect(
+        controller.createStation(mockCreateStationDto)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('updateStation', () => {
-    beforeEach(() => {
-      mockRequest.params = { id: '123e4567-e89b-12d3-a456-426614174000' };
-      mockRequest.body = mockUpdateStationDTO;
-    });
+    it('should update a station', async () => {
+      const updatedStation = { ...mockStation, ...mockUpdateStationDto };
+      jest.spyOn(service, 'updateStation').mockResolvedValue(updatedStation);
 
-    it('should update station with 200 status code', async () => {
-      const updatedStation = { ...mockStation, ...mockUpdateStationDTO };
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: true,
-        data: updatedStation,
-        message: 'Station updated successfully',
-      };
-
-      mockStationService.updateStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.updateStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockStationService.updateStation).toHaveBeenCalledWith(
+      const result = await controller.updateStation(
         '123e4567-e89b-12d3-a456-426614174000',
-        mockUpdateStationDTO
+        mockUpdateStationDto
       );
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+
+      expect(service.updateStation).toHaveBeenCalledWith(
+        '123e4567-e89b-12d3-a456-426614174000',
+        mockUpdateStationDto
+      );
+      expect(result).toEqual(updatedStation);
     });
 
-    it('should return 404 when station not found', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: 'Station with ID 123e4567-e89b-12d3-a456-426614174000 not found',
-      };
+    it('should throw NotFoundException when station not found', async () => {
+      jest.spyOn(service, 'updateStation').mockRejectedValue(new NotFoundException('Station not found'));
 
-      mockStationService.updateStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.updateStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 400 on validation error', async () => {
-      const mockServiceResponse: ApiResponse<IStation> = {
-        success: false,
-        error: 'Validation failed: Name must be between 1 and 100 characters',
-      };
-
-      mockStationService.updateStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.updateStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      await expect(
+        controller.updateStation('123e4567-e89b-12d3-a456-426614174000', mockUpdateStationDto)
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('deleteStation', () => {
-    beforeEach(() => {
-      mockRequest.params = { id: '123e4567-e89b-12d3-a456-426614174000' };
+    it('should delete a station', async () => {
+      jest.spyOn(service, 'deleteStation').mockResolvedValue(undefined);
+
+      await controller.deleteStation('123e4567-e89b-12d3-a456-426614174000');
+
+      expect(service.deleteStation).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
     });
 
-    it('should delete station with 200 status code', async () => {
-      const mockServiceResponse: ApiResponse<null> = {
-        success: true,
-        data: null,
-        message: 'Station deleted successfully',
-      };
+    it('should throw NotFoundException when station not found', async () => {
+      jest.spyOn(service, 'deleteStation').mockRejectedValue(new NotFoundException('Station not found'));
 
-      mockStationService.deleteStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.deleteStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockStationService.deleteStation).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 404 when station not found', async () => {
-      const mockServiceResponse: ApiResponse<null> = {
-        success: false,
-        error: 'Station with ID 123e4567-e89b-12d3-a456-426614174000 not found',
-      };
-
-      mockStationService.deleteStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.deleteStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
-    });
-
-    it('should return 400 for invalid ID format', async () => {
-      const mockServiceResponse: ApiResponse<null> = {
-        success: false,
-        error: 'Invalid station ID format',
-      };
-
-      mockStationService.deleteStation.mockResolvedValue(mockServiceResponse);
-
-      await stationController.deleteStation(mockRequest as Request, mockResponse as Response);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(400);
-      expect(mockResponse.json).toHaveBeenCalledWith(mockServiceResponse);
+      await expect(
+        controller.deleteStation('123e4567-e89b-12d3-a456-426614174000')
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
