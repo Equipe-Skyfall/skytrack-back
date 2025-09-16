@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import type { MeteorologicalStation } from '@prisma/client';
 import { CreateStationDto, StationStatus } from './dto/create-station.dto';
 import { UpdateStationDto } from './dto/update-station.dto';
@@ -55,8 +55,19 @@ export class StationsService {
   }
 
   async createStation(createStationDto: CreateStationDto): Promise<StationDto> {
-    const station = await this.stationRepository.create(createStationDto);
-    return this.mapToStationDto(station);
+    try {
+      const station = await this.stationRepository.create(createStationDto);
+      return this.mapToStationDto(station);
+    } catch (error: any) {
+      // Handle Prisma unique constraint violation
+      if (error.code === 'P2002' && error.meta?.target?.includes('macAddress')) {
+        throw new BadRequestException(`MAC address '${createStationDto.macAddress}' is already in use by another station`);
+      }
+      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        throw new BadRequestException(`Station name '${createStationDto.name}' is already in use`);
+      }
+      throw error;
+    }
   }
 
   async updateStation(
@@ -69,8 +80,19 @@ export class StationsService {
       throw new NotFoundException(`Station with ID ${id} not found`);
     }
 
-    const station = await this.stationRepository.update(id, updateStationDto);
-    return this.mapToStationDto(station);
+    try {
+      const station = await this.stationRepository.update(id, updateStationDto);
+      return this.mapToStationDto(station);
+    } catch (error: any) {
+      // Handle Prisma unique constraint violation
+      if (error.code === 'P2002' && error.meta?.target?.includes('macAddress')) {
+        throw new BadRequestException(`MAC address '${updateStationDto.macAddress}' is already in use by another station`);
+      }
+      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        throw new BadRequestException(`Station name '${updateStationDto.name}' is already in use`);
+      }
+      throw error;
+    }
   }
 
   async deleteStation(id: string): Promise<void> {
