@@ -107,6 +107,13 @@ const options = {
               minLength: 1,
               maxLength: 100,
             },
+            macAddress: {
+              type: 'string',
+              description: 'MAC address of the ESP32/sensor device',
+              maxLength: 50,
+              nullable: true,
+              example: '24:6F:28:AE:52:7C',
+            },
             latitude: {
               type: 'number',
               minimum: -90,
@@ -158,6 +165,12 @@ const options = {
               minLength: 1,
               maxLength: 100,
             },
+            macAddress: {
+              type: 'string',
+              description: 'MAC address of the ESP32/sensor device',
+              maxLength: 50,
+              example: '24:6F:28:AE:52:7C',
+            },
             latitude: {
               type: 'number',
               minimum: -90,
@@ -196,6 +209,12 @@ const options = {
               description: 'Station name',
               minLength: 1,
               maxLength: 100,
+            },
+            macAddress: {
+              type: 'string',
+              description: 'MAC address of the ESP32/sensor device',
+              maxLength: 50,
+              example: '24:6F:28:AE:52:7C',
             },
             latitude: {
               type: 'number',
@@ -258,6 +277,97 @@ const options = {
             },
           },
         },
+        SensorReading: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Unique identifier for the sensor reading',
+            },
+            stationId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'Station UUID that sent this reading',
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When the reading was taken',
+            },
+            mongoId: {
+              type: 'string',
+              description: 'Original MongoDB document ID',
+            },
+            readings: {
+              type: 'object',
+              description: 'Flexible JSONB sensor data',
+              example: {
+                temperatura: 22.3,
+                umidade: 72,
+                pressao: 1015.2,
+                chuva: 0
+              },
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Creation timestamp',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last update timestamp',
+            },
+            station: {
+              $ref: '#/components/schemas/Station',
+              description: 'Associated station details',
+            },
+          },
+        },
+        MigrationStats: {
+          type: 'object',
+          properties: {
+            totalProcessed: {
+              type: 'number',
+              description: 'Total documents processed from MongoDB',
+            },
+            successfulMigrations: {
+              type: 'number',
+              description: 'Successfully migrated sensor readings',
+            },
+            failedMigrations: {
+              type: 'number',
+              description: 'Failed migration attempts',
+            },
+            stationsMatched: {
+              type: 'number',
+              description: 'Readings matched to existing stations',
+            },
+            stationsNotFound: {
+              type: 'number',
+              description: 'Readings without matching stations',
+            },
+            lastSyncTimestamp: {
+              type: 'number',
+              description: 'Unix timestamp of last synchronized data',
+            },
+            startTime: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Migration start time',
+            },
+            endTime: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Migration end time',
+            },
+            duration: {
+              type: 'number',
+              description: 'Migration duration in milliseconds',
+            },
+          },
+        },
       },
     },
   },
@@ -267,7 +377,8 @@ const options = {
 let cachedSwaggerSpec: any = null;
 
 export const swaggerSpec = (() => {
-  if (!cachedSwaggerSpec) {
+  // Always regenerate in development to pick up changes
+  if (!cachedSwaggerSpec || process.env.NODE_ENV === 'development') {
     cachedSwaggerSpec = swaggerJsdoc(options);
   }
   return cachedSwaggerSpec;

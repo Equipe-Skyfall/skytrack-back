@@ -15,10 +15,11 @@ export type {
 export interface IStation {
   id: string;
   name: string;
+  macAddress?: string | null;
   latitude: number;
   longitude: number;
-  address?: string;
-  description?: string;
+  address?: string | null;
+  description?: string | null;
   status: StationStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -27,20 +28,22 @@ export interface IStation {
 // Station creation DTO (Data Transfer Object)
 export interface ICreateStationDTO {
   name: string;
+  macAddress?: string | null;
   latitude: number;
   longitude: number;
-  address?: string;
-  description?: string;
+  address?: string | null;
+  description?: string | null;
   status?: StationStatus;
 }
 
 // Station update DTO
 export interface IUpdateStationDTO {
   name?: string;
+  macAddress?: string | null;
   latitude?: number;
   longitude?: number;
-  address?: string;
-  description?: string;
+  address?: string | null;
+  description?: string | null;
   status?: StationStatus;
 }
 
@@ -73,6 +76,11 @@ export const STATION_VALIDATION_RULES = {
   NAME: {
     MIN_LENGTH: 1,
     MAX_LENGTH: 100,
+  },
+  MAC_ADDRESS: {
+    MIN_LENGTH: 1,
+    MAX_LENGTH: 50,
+    PATTERN: /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^[0-9A-Fa-f-]+$/, // MAC or UUID format
   },
   ADDRESS: {
     MAX_LENGTH: 255,
@@ -114,6 +122,17 @@ export class StationValidator implements IStationValidator {
       errors.push(`Name must be between ${STATION_VALIDATION_RULES.NAME.MIN_LENGTH} and ${STATION_VALIDATION_RULES.NAME.MAX_LENGTH} characters`);
     }
 
+    // Validate MAC address if provided
+    if (data.macAddress !== undefined) {
+      if (data.macAddress && data.macAddress.trim().length === 0) {
+        errors.push('MAC address cannot be empty if provided');
+      } else if (data.macAddress && !STATION_VALIDATION_RULES.MAC_ADDRESS.PATTERN.test(data.macAddress)) {
+        errors.push('Invalid MAC address format');
+      } else if (data.macAddress && data.macAddress.length > STATION_VALIDATION_RULES.MAC_ADDRESS.MAX_LENGTH) {
+        errors.push(`MAC address must not exceed ${STATION_VALIDATION_RULES.MAC_ADDRESS.MAX_LENGTH} characters`);
+      }
+    }
+
     // Validate address length
     if (data.address && data.address.length > STATION_VALIDATION_RULES.ADDRESS.MAX_LENGTH) {
       errors.push(`Address must not exceed ${STATION_VALIDATION_RULES.ADDRESS.MAX_LENGTH} characters`);
@@ -152,13 +171,24 @@ export class StationValidator implements IStationValidator {
       }
     }
 
+    // Validate MAC address if provided
+    if (data.macAddress !== undefined) {
+      if (data.macAddress !== null && data.macAddress.trim().length === 0) {
+        errors.push('MAC address cannot be empty if provided');
+      } else if (data.macAddress && !STATION_VALIDATION_RULES.MAC_ADDRESS.PATTERN.test(data.macAddress)) {
+        errors.push('Invalid MAC address format');
+      } else if (data.macAddress && data.macAddress.length > STATION_VALIDATION_RULES.MAC_ADDRESS.MAX_LENGTH) {
+        errors.push(`MAC address must not exceed ${STATION_VALIDATION_RULES.MAC_ADDRESS.MAX_LENGTH} characters`);
+      }
+    }
+
     // Validate address if provided
-    if (data.address !== undefined && data.address.length > STATION_VALIDATION_RULES.ADDRESS.MAX_LENGTH) {
+    if (data.address !== undefined && data.address !== null && data.address.length > STATION_VALIDATION_RULES.ADDRESS.MAX_LENGTH) {
       errors.push(`Address must not exceed ${STATION_VALIDATION_RULES.ADDRESS.MAX_LENGTH} characters`);
     }
 
     // Validate description if provided
-    if (data.description !== undefined && data.description.length > STATION_VALIDATION_RULES.DESCRIPTION.MAX_LENGTH) {
+    if (data.description !== undefined && data.description !== null && data.description.length > STATION_VALIDATION_RULES.DESCRIPTION.MAX_LENGTH) {
       errors.push(`Description must not exceed ${STATION_VALIDATION_RULES.DESCRIPTION.MAX_LENGTH} characters`);
     }
 

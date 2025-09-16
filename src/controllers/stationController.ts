@@ -6,6 +6,7 @@ import { ICreateStationDTO, IUpdateStationDTO, IStationQueryParams, StationStatu
 export interface IStationController {
   getAllStations(req: Request, res: Response): Promise<void>;
   getStationById(req: Request, res: Response): Promise<void>;
+  getStationByMacAddress?(req: Request, res: Response): Promise<void>;
   createStation(req: Request, res: Response): Promise<void>;
   updateStation(req: Request, res: Response): Promise<void>;
   deleteStation(req: Request, res: Response): Promise<void>;
@@ -167,6 +168,82 @@ export class StationController implements IStationController {
       }
 
       const result = await this.stationService.getStationById(id);
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        const statusCode = result.error?.includes('not found') ? 404 : 400;
+        res.status(statusCode).json(result);
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /stations/mac/{macAddress}:
+   *   get:
+   *     summary: Get a meteorological station by MAC address
+   *     description: Retrieve a specific meteorological station by its MAC address
+   *     tags: [Stations]
+   *     parameters:
+   *       - in: path
+   *         name: macAddress
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Station MAC address or UUID
+   *     responses:
+   *       200:
+   *         description: Station found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/StationResponse'
+   *       404:
+   *         description: Station not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ApiError'
+   *       400:
+   *         description: Invalid MAC address format
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ApiError'
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ApiError'
+   */
+  async getStationByMacAddress(req: Request, res: Response): Promise<void> {
+    try {
+      const { macAddress } = req.params;
+
+      if (!macAddress) {
+        res.status(400).json({
+          success: false,
+          error: 'MAC address is required',
+        });
+        return;
+      }
+
+      if (!this.stationService.getStationByMacAddress) {
+        res.status(501).json({
+          success: false,
+          error: 'MAC address lookup not implemented',
+        });
+        return;
+      }
+
+      const result = await this.stationService.getStationByMacAddress(macAddress);
 
       if (result.success) {
         res.status(200).json(result);

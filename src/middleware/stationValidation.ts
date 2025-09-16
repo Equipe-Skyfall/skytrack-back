@@ -42,13 +42,26 @@ abstract class BaseValidationMiddleware {
 
     return true;
   }
+
+  protected isValidMacAddress(value: any): boolean {
+    if (typeof value !== 'string') return false;
+    const trimmed = value.trim();
+
+    // Check length
+    if (trimmed.length === 0 || trimmed.length > STATION_VALIDATION_RULES.MAC_ADDRESS.MAX_LENGTH) {
+      return false;
+    }
+
+    // Check pattern (MAC address or UUID format)
+    return STATION_VALIDATION_RULES.MAC_ADDRESS.PATTERN.test(trimmed);
+  }
 }
 
 // Create Station validation middleware
 class CreateStationValidation extends BaseValidationMiddleware {
   validate = (req: Request, res: Response, next: NextFunction): void => {
     const errors: ValidationError[] = [];
-    const { name, latitude, longitude, address, description, status } = req.body;
+    const { name, macAddress, latitude, longitude, address, description, status } = req.body;
 
     // Validate required name field
     if (!name) {
@@ -78,6 +91,16 @@ class CreateStationValidation extends BaseValidationMiddleware {
         field: 'longitude',
         message: `Longitude must be a number between ${STATION_VALIDATION_RULES.LONGITUDE.MIN} and ${STATION_VALIDATION_RULES.LONGITUDE.MAX}`
       });
+    }
+
+    // Validate optional MAC address field
+    if (macAddress !== undefined && macAddress !== null) {
+      if (!this.isValidMacAddress(macAddress)) {
+        errors.push({
+          field: 'macAddress',
+          message: 'Invalid MAC address format'
+        });
+      }
     }
 
     // Validate optional address field
@@ -121,10 +144,10 @@ class CreateStationValidation extends BaseValidationMiddleware {
 class UpdateStationValidation extends BaseValidationMiddleware {
   validate = (req: Request, res: Response, next: NextFunction): void => {
     const errors: ValidationError[] = [];
-    const { name, latitude, longitude, address, description, status } = req.body;
+    const { name, macAddress, latitude, longitude, address, description, status } = req.body;
 
     // Check if at least one field is provided for update
-    if (name === undefined && latitude === undefined && longitude === undefined &&
+    if (name === undefined && macAddress === undefined && latitude === undefined && longitude === undefined &&
         address === undefined && description === undefined && status === undefined) {
       errors.push({ field: 'body', message: 'At least one field must be provided for update' });
     }
@@ -153,6 +176,16 @@ class UpdateStationValidation extends BaseValidationMiddleware {
         field: 'longitude',
         message: `Longitude must be a number between ${STATION_VALIDATION_RULES.LONGITUDE.MIN} and ${STATION_VALIDATION_RULES.LONGITUDE.MAX}`
       });
+    }
+
+    // Validate MAC address field if provided
+    if (macAddress !== undefined && macAddress !== null) {
+      if (!this.isValidMacAddress(macAddress)) {
+        errors.push({
+          field: 'macAddress',
+          message: 'Invalid MAC address format'
+        });
+      }
     }
 
     // Validate address field if provided

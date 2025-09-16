@@ -97,6 +97,43 @@ const createStationRoutes = (stationController: IStationController): Router => {
 
   /**
    * @swagger
+   * /stations/mac/{macAddress}:
+   *   get:
+   *     summary: Get station by MAC address
+   *     tags: [Stations]
+   *     parameters:
+   *       - in: path
+   *         name: macAddress
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Station MAC address
+   *     responses:
+   *       200:
+   *         description: Station details
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Station'
+   *       404:
+   *         description: Station not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ApiError'
+   *       500:
+   *         description: Server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ApiError'
+   */
+  if (stationController.getStationByMacAddress) {
+    router.get('/stations/mac/:macAddress', (req, res) => stationController.getStationByMacAddress!(req, res));
+  }
+
+  /**
+   * @swagger
    * /stations:
    *   post:
    *     summary: Create new station
