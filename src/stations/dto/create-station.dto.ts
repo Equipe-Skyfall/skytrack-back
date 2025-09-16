@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsEnum, MinLength, MaxLength, Min, Max } from 'class-validator';
+import { IsUniqueMacAddress } from '../validators/unique-mac-address.validator';
 
 export enum StationStatus {
   ACTIVE = 'ACTIVE',
@@ -27,6 +28,7 @@ export class CreateStationDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @IsUniqueMacAddress()
   macAddress?: string;
 
   @ApiProperty({
