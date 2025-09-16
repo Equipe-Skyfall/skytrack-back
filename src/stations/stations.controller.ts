@@ -152,6 +152,8 @@ export class StationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateStationDto: UpdateStationDto,
   ): Promise<StationDto> {
+    // Add the station ID to the DTO for validation context
+    (updateStationDto as any).id = id;
     return this.stationsService.updateStation(id, updateStationDto);
   }
 
