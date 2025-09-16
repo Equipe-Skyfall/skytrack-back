@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MeteorologicalStation {
+  id             String                      @id @default(uuid())
+  name           String                      @unique @db.VarChar(100)
+  latitude       Decimal                     @db.Decimal(10, 8)
+  longitude      Decimal                     @db.Decimal(11, 8)
+  description    String?
+  status         MeteorologicalStationStatus @default(ACTIVE)
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  updatedAt      DateTime                    @updatedAt @map("updated_at")
+  address              String?                     @db.VarChar(255)
+  macAddress           String?                     @unique @map("mac_address") @db.VarChar(50)
+  sensorReadings       SensorReading[]
+
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([name])
+  @@index([macAddress])
+  @@map("meteorological_stations")
+}
+
+model SensorReading {
+  id         String                @id @default(uuid())
+  stationId  String                @map("station_id")  // This is the station UUID from MAC address lookup
+  timestamp  DateTime
+  mongoId    String                @unique @map("mongo_id")
+  readings   Json                  // JSONB field for flexible sensor data storage
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
+  station    MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+  @@index([timestamp])
+  @@index([stationId, timestamp])
+  @@index([mongoId])
+  @@map("sensor_readings")
+}
+
+
+model MigrationState {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  lastSyncTimestamp Int      @map("last_sync_timestamp")
+  totalMigrated     Int      @default(0) @map("total_migrated")
+  lastRunAt         DateTime @default(now()) @map("last_run_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("migration_states")
+}
+
+enum MeteorologicalStationStatus {
+  ACTIVE
+  INACTIVE
+}

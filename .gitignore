@@ -13,3 +13,6 @@ yarn-error.log*
 .vscode/
 .idea/
 *.log
+/src/generated/prisma
+.vercel
+scripts/
