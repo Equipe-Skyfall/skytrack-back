@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { useContainer } from 'class-validator';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { AppModule } from '../src/app.module';
 
@@ -15,6 +16,9 @@ async function getApp() {
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log'],
     });
+
+    // Configure class-validator to use NestJS dependency injection
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
     // Global validation pipe
     app.useGlobalPipes(new ValidationPipe({
@@ -31,19 +35,20 @@ async function getApp() {
       credentials: false,
     });
 
-    // Global prefix for API routes
-    app.setGlobalPrefix('api');
+    // Global prefix for API routes (excluding root route)
+    app.setGlobalPrefix('api', {
+      exclude: ['/'],
+    });
 
-    // Swagger configuration
+    // Swagger configuration (after global prefix so it reflects the correct paths)
     const config = new DocumentBuilder()
       .setTitle('SkyTrack API')
       .setDescription('A comprehensive backend API for SkyTrack application')
       .setVersion('1.0.0')
-      .addServer('https://am-6r0tigshm-fabios-projects-ee9987e5.vercel.app', 'Production server (Vercel)')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api-docs', app, document, {
+    SwaggerModule.setup('docs', app, document, {
       customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
       customJs: [
         'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
@@ -62,6 +67,7 @@ async function getApp() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+
     const app = await getApp();
     return app(req, res);
   } catch (error) {
