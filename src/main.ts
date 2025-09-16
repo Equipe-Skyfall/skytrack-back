@@ -29,8 +29,6 @@ async function bootstrap() {
     .setTitle('SkyTrack API')
     .setDescription('A comprehensive backend API for SkyTrack application')
     .setVersion('1.0.0')
-    .addServer(`http://localhost:${process.env.PORT || 3000}`, 'Development server')
-    .addServer('https://am-6r0tigshm-fabios-projects-ee9987e5.vercel.app', 'Production server (Vercel)')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
