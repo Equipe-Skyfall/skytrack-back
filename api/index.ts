@@ -39,7 +39,7 @@ async function getApp() {
       .setTitle('SkyTrack API')
       .setDescription('A comprehensive backend API for SkyTrack application')
       .setVersion('1.0.0')
-      .addServer('https://am-6r0tigshm-fabios-projects-ee9987e5.vercel.app/api', 'Production server (Vercel)')
+      .addServer('https://am-6r0tigshm-fabios-projects-ee9987e5.vercel.app', 'Production server (Vercel)')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
