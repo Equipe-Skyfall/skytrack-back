@@ -1,24 +1,26 @@
-import { Request, Response } from 'express';
-import { getHealth } from '../../src/controllers/healthController';
+import { Test, TestingModule } from '@nestjs/testing';
+import { HealthController } from '../../src/health/health.controller';
+import { HealthService } from '../../src/health/health.service';
 
-describe('Health Controller', () => {
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+describe('HealthController', () => {
+  let controller: HealthController;
+  let service: HealthService;
 
-  beforeEach(() => {
-    mockRequest = {};
-    mockResponse = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [HealthController],
+      providers: [HealthService],
+    }).compile();
+
+    controller = module.get<HealthController>(HealthController);
+    service = module.get<HealthService>(HealthService);
   });
 
   describe('getHealth', () => {
-    it('should return health status with 200 status code', () => {
-      getHealth(mockRequest as Request, mockResponse as Response);
+    it('should return health status', () => {
+      const result = controller.getHealth();
 
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
-      expect(mockResponse.json).toHaveBeenCalledWith(
+      expect(result).toEqual(
         expect.objectContaining({
           status: 'OK',
           timestamp: expect.any(String),
@@ -29,13 +31,18 @@ describe('Health Controller', () => {
     });
 
     it('should return valid ISO timestamp', () => {
-      getHealth(mockRequest as Request, mockResponse as Response);
+      const result = controller.getHealth();
+      const timestamp = result.timestamp;
 
-      const callArgs = (mockResponse.json as jest.Mock).mock.calls[0][0];
-      const timestamp = callArgs.timestamp;
-      
       expect(() => new Date(timestamp)).not.toThrow();
       expect(new Date(timestamp).toISOString()).toBe(timestamp);
+    });
+
+    it('should call health service', () => {
+      const serviceSpy = jest.spyOn(service, 'getHealth');
+      controller.getHealth();
+
+      expect(serviceSpy).toHaveBeenCalled();
     });
   });
 });
