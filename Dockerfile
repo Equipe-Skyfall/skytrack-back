@@ -3,12 +3,13 @@
 # ----------------------------------------------------------------
 # Build stage - Install dependencies and compile TypeScript
 # ----------------------------------------------------------------
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
+COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies for TypeScript compilation)
 RUN npm ci
@@ -25,7 +26,7 @@ RUN npm run build
 # ----------------------------------------------------------------
 # Production stage - Minimal runtime image
 # ----------------------------------------------------------------
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Add metadata
 LABEL maintainer="SkyTrack Project"
