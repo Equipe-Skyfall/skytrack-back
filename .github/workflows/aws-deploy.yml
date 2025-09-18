@@ -106,6 +106,10 @@ jobs:
               -e MONGO_DATABASE='${{ env.MONGO_DATABASE }}' \
               -e NODE_ENV=production \
               -e PORT=3000 \
+              -e MIGRATION_ENABLED='true' \
+              -e MIGRATION_INTERVAL_MINUTES='15' \
+              -e MIGRATION_BATCH_SIZE='100' \
+              -e MIGRATION_SYNC_NAME='main_sync' \
               $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
             echo 'Running database migrations...'
