@@ -2,7 +2,7 @@
 node_modules
 npm-debug.log*
 
-# Build artifacts
+# Build artifacts (exclude output, but keep source)
 dist
 build
 *.tsbuildinfo
@@ -60,7 +60,7 @@ docker-compose*
 .eslintrc*
 .prettierrc*
 jest.config.*
-tsconfig.json
+# tsconfig.json - NEEDED for build, don't ignore
 *.spec.ts
 *.test.ts
 test/
