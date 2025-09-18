@@ -60,17 +60,8 @@ jobs:
         run: |
           # Setup SSH
           mkdir -p ~/.ssh
-
-          # Write private key with proper handling of newlines
-          printf '%s\n' "$EC2_KEY" > ~/.ssh/id_rsa
+          echo "$EC2_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-
-          # Debug: Check key file
-          echo "Key file size: $(wc -c < ~/.ssh/id_rsa)"
-          echo "Key file first line: $(head -1 ~/.ssh/id_rsa)"
-          echo "Key file last line: $(tail -1 ~/.ssh/id_rsa)"
-
-          # Add host to known_hosts
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
           # SSH into EC2 and run deployment commands
