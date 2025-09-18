@@ -32,12 +32,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set environment variables
+      - name: Get secrets from AWS Secrets Manager
+        id: get-secrets
         run: |
-          # Set SkyTrack environment variables directly
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
-          echo "MONGO_CONNECTION_STRING=${{ secrets.MONGO_CONNECTION_STRING }}" >> $GITHUB_ENV
-          echo "MONGO_DATABASE=dadosClima" >> $GITHUB_ENV
+          # Get MongoDB connection string
+          MONGO_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "mongo" \
+            --query SecretString --output text)
+
+          # Get database credentials
+          POSTGRES_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "postgres" \
+            --query SecretString --output text)
+
+          # Parse and export secrets (they should be JSON format)
+          echo "MONGO_CONNECTION_STRING=$(echo $MONGO_SECRET | jq -r '.connectionString')" >> $GITHUB_ENV
+          echo "MONGO_DATABASE=$(echo $MONGO_SECRET | jq -r '.database')" >> $GITHUB_ENV
+          echo "DATABASE_URL=$(echo $POSTGRES_SECRET | jq -r '.DATABASE_URL')" >> $GITHUB_ENV
 
       - name: Build, tag, and push image to Amazon ECR
         env:
@@ -81,7 +92,7 @@ jobs:
             docker stop skytrack-backend || true
             docker rm skytrack-backend || true
 
-            echo 'Starting new container with environment variables...'
+            echo 'Starting new container with secrets...'
             docker run -d \
               --name skytrack-backend \
               --restart unless-stopped \
