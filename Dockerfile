@@ -20,8 +20,8 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
-# Debug: Check what files are available
-RUN ls -la && echo "Checking for TypeScript files:" && find . -name "*.ts" | head -10
+# # Debug: Check what files are available
+# RUN ls -la && echo "Checking for TypeScript files:" && find . -name "*.ts" | head -10
 
 # Compile TypeScript to JavaScript using the build script
 RUN npm run build

@@ -2,7 +2,7 @@ name: Deploy to AWS
 
 on:
   push:
-    branches: [Feateure-aws-deploy]
+    branches: [test]
   workflow_dispatch:  # Allow manual triggers
 
 env:
@@ -14,7 +14,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/Feateure-aws-deploy'
+    if: github.ref == 'refs/heads/test'
 
     steps:
       - name: Checkout code
@@ -57,7 +57,7 @@ jobs:
         run: |
           # Build Docker image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
           # Push to ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
