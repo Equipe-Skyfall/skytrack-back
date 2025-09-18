@@ -86,22 +86,6 @@ jobs:
             export AWS_SESSION_TOKEN='${AWS_SESSION_TOKEN}'
             set -e # Exit script on any error
 
-            echo 'Checking AWS CLI installation...'
-            aws --version
-
-            echo 'Debugging AWS credentials...'
-            echo \"AWS_ACCESS_KEY_ID length: \${#AWS_ACCESS_KEY_ID}\"
-            echo \"AWS_SECRET_ACCESS_KEY length: \${#AWS_SECRET_ACCESS_KEY}\"
-            echo \"AWS_SESSION_TOKEN length: \${#AWS_SESSION_TOKEN}\"
-
-            echo 'Testing AWS credentials...'
-            if aws sts get-caller-identity; then
-                echo 'AWS credentials are valid'
-            else
-                echo 'AWS credentials test failed'
-                exit 1
-            fi
-
             echo 'Logging into AWS ECR...'
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
 
