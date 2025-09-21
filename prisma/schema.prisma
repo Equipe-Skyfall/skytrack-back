@@ -19,6 +19,9 @@ model MeteorologicalStation {
   address              String?                     @db.VarChar(255)
   macAddress           String?                     @unique @map("mac_address") @db.VarChar(50)
   sensorReadings       SensorReading[]
+  parameters           Parameter[]
+  alerts               RegisteredAlerts[]
+  // triggeredAlerts      TriggeredAlerts[]
 
   @@index([status])
   @@index([latitude, longitude])
@@ -33,6 +36,7 @@ model SensorReading {
   timestamp  DateTime
   mongoId    String                @unique @map("mongo_id")
   readings   Json                  // JSONB field for flexible sensor data storage
+  parameters Json                  // JSONB field for the processed data after going through the parameters
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
   station    MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
@@ -44,6 +48,61 @@ model SensorReading {
   @@map("sensor_readings")
 }
 
+model Parameter {
+  id                  String   @id @default(uuid())
+  stationId           String   @map("station_id")
+  name                String
+  metric              String
+
+  readingCoefficients Json       // per-reading offsets/factors
+  polynomial          String?    // "a0 + a1*temperatura + a2*umidade^2"
+  coefficients        Float[]    // [1.2, 0.95, -0.002] corresponde à [a0, a1, a2]
+
+  station             MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
+  alerts              RegisteredAlerts[]
+
+  @@index([stationId])
+  @@map("parameter")
+}
+
+model RegisteredAlerts {
+  id          String   @id @default(uuid())
+  stationId   String   @map("station_id")
+  parameterId String   @map("parameter_id")
+  createdAt   DateTime
+
+  description String
+  threshold   Decimal
+  level       String   @default("warning") // optional: warning/critical
+  condition   String   @default("GREATER_THAN") // optional: GREATER_THAN / LESS_THAN
+  durationMinutes Int? // optional: trigger if condition sustained
+
+  station         MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
+  parameter       Parameter             @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  // triggeredAlerts TriggeredAlerts[]
+
+  @@index([stationId])
+  @@index([parameterId])
+  @@unique([stationId, parameterId, level])
+  @@map("registered_alerts")
+}
+
+// model TriggeredAlerts {
+//   id        String   @id @default(uuid())
+//   stationId String
+//   alertId   String
+//   timestamp DateTime @default(now())
+//   value     Decimal
+
+//   station   MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
+//   alert     RegisteredAlerts      @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+//   @@index([stationId])
+//   @@index([alertId])
+//   @@index([stationId, alertId])
+//   @@unique([alertId, timestamp])
+//   @@map("triggered_alerts")
+// }
 
 model MigrationState {
   id                String   @id @default(uuid())
