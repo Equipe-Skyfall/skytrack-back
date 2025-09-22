@@ -36,7 +36,7 @@ model SensorReading {
   timestamp  DateTime
   mongoId    String                @unique @map("mongo_id")
   readings   Json                  // JSONB field for flexible sensor data storage
-  parameters Json                  // JSONB field for the processed data after going through the parameters
+  // parameters Json                  // JSONB field for the processed data after going through the parameters
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
   station    MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
