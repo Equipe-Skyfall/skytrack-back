@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { Parameter, PrismaClient } from '@prisma/client';
 import { MongoDataService, MongoSensorData } from './mongoDataService';
+import { parse } from 'mathjs';
 
 export interface MigrationConfig {
   batchSize: number;
@@ -167,13 +168,22 @@ export class MigrationService {
         }
 
         stats.stationsMatched++;
+        const parameters = await this.getParametersByMAC(mongoRecord.uuid);
+        console.log(`Parameters for station ${stationId}:`, parameters);
+        const mongoReadings = this.extractSensorData(mongoRecord); // guarda os dados dos sensores no padrao JSONB
+        let parameterValues: Record<string, number> = {};
+
+        if (parameters && parameters.length > 0) {
+          parameterValues = this.processParameterValues(parameters, mongoReadings);
+        }
 
         // transforma os dados do mongodb em dados compativeis com o postgres
         const sensorReading = {
           stationId,
           timestamp: new Date(mongoRecord.unixtime * 1000),
           mongoId: mongoRecord._id,
-          readings: this.extractSensorData(mongoRecord), // guarda os dados dos sensores no padrao JSONB
+          readings: parameterValues,
+          parameters: parameters?.map(p => p.id) || [],
         };
 
         sensorReadings.push(sensorReading);
@@ -197,6 +207,78 @@ export class MigrationService {
         stats.failedMigrations += sensorReadings.length;
       }
     }
+  }
+
+  private async getParametersByMAC(stationId: string): Promise<Parameter[]> {
+    return this.prisma.parameter.findMany({
+            where: { stationId: stationId },
+            orderBy: { name: 'asc' },
+        });
+  }
+
+  private processParameterValues(parameters: Parameter[], readings: any): Record<string, number> {
+    const parameterValues: Record<string, number> = {};
+      for (const param of parameters) {
+        const calibration = param.calibration as Record<
+          string,
+          { offset?: number; factor?: number }
+        >;
+
+        const calibKeys = Object.keys(calibration || {});
+        const matchedEntries: { readingKey: string; calibKey: string }[] = [];
+
+        for (const key of calibKeys) {
+          const readingKey = Object.keys(readings).find(
+            rk => rk.toLowerCase() === key.toLowerCase()
+          );
+          if (readingKey) {
+            matchedEntries.push({ readingKey, calibKey: key });
+          }
+        }
+
+        if (matchedEntries.length === 0) {
+          continue;
+        }
+
+        const { readingKey: mainReadingKey, calibKey: mainCalibKey } = matchedEntries[0]!;
+        const rawValue = readings[mainReadingKey];
+        const calib = calibration[mainCalibKey];
+        const calibratedValue = calib
+          ? (rawValue + (calib.offset || 0)) * (calib.factor || 1)
+          : rawValue;
+
+        let finalValue = calibratedValue;
+
+        // apply polynomial if exists
+        if (param.polynomial && param.coefficients?.length) {
+          const vars: Record<string, number> = {};
+
+          // map coefficients (a0, a1, ...)
+          param.coefficients.forEach((c, i) => {
+            vars[`a${i}`] = c;
+          });
+
+          for (const { readingKey, calibKey } of matchedEntries) {
+            const value = readings[readingKey];
+            const c = calibration[calibKey];
+            vars[calibKey] = c
+              ? (value + (c.offset || 0)) * (c.factor || 1)
+              : value;
+          }
+
+          try {
+            finalValue = parse(param.polynomial).evaluate(vars);
+          } catch (err) {
+            console.warn(
+              `Failed to evaluate polynomial for parameter ${param.name}, falling back to calibrated value.`,
+              err
+            );
+          }
+        }
+
+        parameterValues[param.name] = finalValue;
+      }
+    return parameterValues;
   }
 
   private extractSensorData(mongoRecord: MongoSensorData): any {
