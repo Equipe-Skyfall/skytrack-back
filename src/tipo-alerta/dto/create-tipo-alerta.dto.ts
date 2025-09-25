@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsBoolean, IsNumber, IsInt, IsOptional, IsNotEmpty } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { Decimal } from '@prisma/client/runtime/library';
 
 export class CreateTipoAlertaDto {
     @ApiProperty({

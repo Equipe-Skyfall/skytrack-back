@@ -3,7 +3,6 @@ import { ALERT_REPOSITORY_TOKEN, IAlertRepository } from "./interfaces/alert-rep
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { Prisma } from "@prisma/client";
 import { RegisteredAlertDto } from "./dto/alert.dto";
-import { Decimal } from "@prisma/client/runtime/library";
 import { CreateAlertDto } from "./dto/create-alert.dto";
 import { UpdateAlertDto } from "./dto/update-alert.dto";
 import { IStationRepository, STATION_REPOSITORY_TOKEN } from "../stations/interfaces/station-repository.interface";

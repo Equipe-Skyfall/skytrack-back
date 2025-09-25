@@ -15,7 +15,9 @@ jest.mock('@prisma/client/runtime/library', () => ({
 
 // Extend Jest matchers if needed
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     interface Matchers<R> {
       // Add custom matchers here if needed
     }

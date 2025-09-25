@@ -8,7 +8,7 @@ export class IsValidLeituraStructureConstraint implements ValidatorConstraintInt
     }
 
     // Check that all values in leitura are calibration objects with offset/factor
-    for (const [key, value] of Object.entries(leitura)) {
+    for (const [, value] of Object.entries(leitura)) {
       if (!value || typeof value !== 'object') {
         return false;
       }
@@ -29,7 +29,7 @@ export class IsValidLeituraStructureConstraint implements ValidatorConstraintInt
 }
 
 export function IsValidLeituraStructure(validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       target: object.constructor,
       propertyName: propertyName,
