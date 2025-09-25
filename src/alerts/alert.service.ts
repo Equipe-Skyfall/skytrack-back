@@ -91,7 +91,7 @@ export class AlertsService {
 
                     case 'P2002':
                         throw new ConflictException(
-                            `An alert for this station, parameter, and level already exists`,
+                            `An alert for this station, parameter, and alert type already exists`,
                         );
 
                     default:
@@ -126,7 +126,7 @@ export class AlertsService {
 
                     case 'P2002':
                         throw new ConflictException(
-                            `An alert for this station, parameter, and level already exists`,
+                            `An alert for this station, parameter, and alert type already exists`,
                         );
 
                     default:
@@ -151,13 +151,11 @@ export class AlertsService {
     private mapToAlertDto(alert: any): RegisteredAlertDto {
         return {
             id: alert.id,
+            data: alert.data,
             stationId: alert.stationId,
-            parameter: alert.parameter.name,
-            description: alert.description,
-            threshold: (alert.threshold as Decimal).toNumber(),
-            level: alert.level,
-            condition: alert.condition,
-            durationMinutes: alert.durationMinutes ?? undefined,
+            parameterId: alert.parameterId,
+            tipoAlertaId: alert.tipoAlertaId,
+            medidasId: alert.medidasId ?? undefined,
             createdAt: alert.createdAt,
         }
     }

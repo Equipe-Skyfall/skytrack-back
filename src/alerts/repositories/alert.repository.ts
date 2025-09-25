@@ -13,15 +13,18 @@ export class AlertRepository implements IAlertRepository {
         const { level, page, limit } = filters;
         const skip = (page - 1) * limit;
 
-        const where = level ? { level } : {};
+        const where = level ? { tipoAlerta: { nivel: level } } : {};
 
         const [alerts, total] = await Promise.all([
             this.prisma.registeredAlerts.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: { description: 'asc' },
-                include: { parameter: { select: { id: true, name: true } } },
+                orderBy: { data: 'desc' },
+                include: {
+                    parameter: { select: { id: true } },
+                    tipoAlerta: { select: { id: true, tipo: true, nivel: true } }
+                },
             }),
             this.prisma.registeredAlerts.count({ where }),
         ]);
@@ -32,7 +35,10 @@ export class AlertRepository implements IAlertRepository {
     async findById(id: string): Promise<RegisteredAlerts | null> {
         return this.prisma.registeredAlerts.findUnique({
             where: { id },
-            include: { parameter: { select: { id: true, name: true } } },
+            include: {
+                parameter: { select: { id: true } },
+                tipoAlerta: { select: { id: true, tipo: true, nivel: true } }
+            },
         });
     }
 
@@ -42,7 +48,7 @@ export class AlertRepository implements IAlertRepository {
 
         const where = {
             stationId: macAddress,
-            ...(level ? { level } : {}),
+            ...(level ? { tipoAlerta: { nivel: level } } : {}),
         };
 
         const [alerts, total] = await Promise.all([
@@ -50,8 +56,11 @@ export class AlertRepository implements IAlertRepository {
                 where,
                 skip,
                 take: limit,
-                orderBy: { description: 'asc' },
-                include: { parameter: { select: { id: true, name: true } } },
+                orderBy: { data: 'desc' },
+                include: {
+                    parameter: { select: { id: true } },
+                    tipoAlerta: { select: { id: true, tipo: true, nivel: true } }
+                },
             }),
             this.prisma.registeredAlerts.count({ where }),
         ]);
@@ -63,10 +72,10 @@ export class AlertRepository implements IAlertRepository {
         return this.prisma.registeredAlerts.create({
             data: {
                 ...data,
-                createdAt: new Date(),
             },
             include: {
-                parameter: { select: { id: true, name: true } },
+                parameter: { select: { id: true } },
+                tipoAlerta: { select: { id: true, tipo: true, nivel: true } }
             },
         });
     }
@@ -76,7 +85,8 @@ export class AlertRepository implements IAlertRepository {
             where: { id },
             data,
             include: {
-                parameter: { select: { id: true, name: true } },
+                parameter: { select: { id: true } },
+                tipoAlerta: { select: { id: true, tipo: true, nivel: true } }
             },
         });
     }

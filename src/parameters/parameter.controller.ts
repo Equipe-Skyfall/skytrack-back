@@ -55,6 +55,23 @@ export class ParametersController {
         return this.parametersService.getParametersByMacAddress(Number(page), Number(limit), macAddress, name);
     }
 
+    @Get('station/:stationId')
+    @ApiOperation({ summary: 'Get all parameters for a station UUID' })
+    @ApiParam({ name: 'stationId', type: 'string', description: `Station's UUID` })
+    @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+    @ApiQuery({ name: 'name', required: false, type: String, example: "Chuva" })
+    @ApiResponse({ status: HttpStatus.OK, description: 'List of parameters', type: ParametersListDto })
+    @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Station not found' })
+    async getParametersByStationId(
+        @Param('stationId', ParseUUIDPipe) stationId: string,
+        @Query('page') page = 1,
+        @Query('limit') limit = 10,
+        @Query('name') name?: string
+    ): Promise<ParametersListDto> {
+        return this.parametersService.getParametersByStationId(Number(page), Number(limit), stationId, name);
+    }
+
     @Post()
     @ApiOperation({ summary: 'Create a new parameter' })
     @ApiResponse({ status: HttpStatus.CREATED, description: 'Parameter created', type: ParameterDto })
