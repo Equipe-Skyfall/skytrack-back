@@ -135,7 +135,8 @@ describe('TipoAlertaService', () => {
         ...mockTipoAlerta,
         ...mockCreateDto,
         id: '550e8400-e29b-41d4-a716-446655440001',
-        criadoEm: new Date()
+        criadoEm: new Date(),
+        limite: new Decimal(mockCreateDto.limite) // Ensure limite is converted to Decimal for Prisma response
       };
       prisma.tipoAlerta.create.mockResolvedValue(createdTipoAlerta);
 

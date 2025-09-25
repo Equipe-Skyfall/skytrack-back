@@ -38,8 +38,8 @@ export class TipoAlertaService {
                 }
             });
             return this.mapToTipoAlertaDto(tipoAlerta);
-        } catch (error: any) {
-            if (error.code === 'P2002') {
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
                 throw new BadRequestException(`TipoAlerta with tipo '${createTipoAlertaDto.tipo}' already exists`);
             }
             throw error;
@@ -56,7 +56,7 @@ export class TipoAlertaService {
         }
 
         try {
-            const updateData: any = { ...updateTipoAlertaDto };
+            const updateData: Record<string, unknown> = { ...updateTipoAlertaDto };
             if (updateTipoAlertaDto.limite !== undefined) {
                 updateData.limite = new Decimal(updateTipoAlertaDto.limite);
             }
@@ -66,8 +66,8 @@ export class TipoAlertaService {
                 data: updateData
             });
             return this.mapToTipoAlertaDto(tipoAlerta);
-        } catch (error: any) {
-            if (error.code === 'P2002') {
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
                 throw new BadRequestException(`TipoAlerta with tipo '${updateTipoAlertaDto.tipo}' already exists`);
             }
             throw error;
@@ -96,7 +96,9 @@ export class TipoAlertaService {
             condicao: tipoAlerta.condicao,
             valor: tipoAlerta.valor,
             criadoEm: tipoAlerta.criadoEm,
-            limite: (tipoAlerta.limite as Decimal).toNumber(),
+            limite: typeof tipoAlerta.limite === 'object' && tipoAlerta.limite instanceof Decimal
+                ? tipoAlerta.limite.toNumber()
+                : Number(tipoAlerta.limite),
             nivel: tipoAlerta.nivel,
             duracaoMin: tipoAlerta.duracaoMin || undefined
         };
