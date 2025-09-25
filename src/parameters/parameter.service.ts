@@ -3,7 +3,6 @@ import { IParameterRepository, PARAMETER_REPOSITORY_TOKEN } from "./interfaces/p
 import { ParametersListDto } from "./dto/parameters-list.dto";
 import { Parameter, Prisma } from "@prisma/client";
 import { ParameterDto } from "./dto/parameter.dto";
-import { ReadingCalibrationDto } from "./dto/reading-calibration.dto";
 import { IStationRepository, STATION_REPOSITORY_TOKEN } from "../stations/interfaces/station-repository.interface";
 import { CreateParameterDto } from "./dto/create-parameter.dto";
 import { UpdateParameterDto } from "./dto/update-parameter.dto";
@@ -47,6 +46,31 @@ export class ParametersService {
         return this.mapToParameterDto(parameter);
     }
 
+    async getParametersByStationId(
+        page: number,
+        limit: number,
+        stationId: string,
+        name?: string,
+    ): Promise<ParametersListDto> {
+        const stationExists = await this.stationRepository.exists(stationId)
+        if (!stationExists) {
+            throw new NotFoundException(`Station with ID ${stationId} not found`);
+        }
+
+        const result = await this.parameterRepository.findByStationId({page, limit, name}, stationId)
+        const totalPages = Math.ceil(result.total/limit);
+
+        return {
+            data: result.parameters.map(this.mapToParameterDto),
+            pagination: {
+                page,
+                limit,
+                total: result.total,
+                totalPages,
+            }
+        }
+    }
+
     async getParametersByMacAddress(
         page: number,
         limit: number,
@@ -73,10 +97,24 @@ export class ParametersService {
     }
 
     async createParameter(createParameterDto: CreateParameterDto): Promise<ParameterDto> {
-        const macAddress = createParameterDto.stationId;
-        const validMAC = await this.stationRepository.existsByMAC(macAddress)
-        if (!validMAC) {
-            throw new NotFoundException(`Station with MAC ${macAddress} not found`);
+        const stationId = createParameterDto.stationId;
+        const stationExists = await this.stationRepository.exists(stationId)
+        if (!stationExists) {
+            throw new NotFoundException(`Station with ID ${stationId} not found`);
+        }
+
+        // Check if TipoParametro exists
+        const tipoParametroExists = await this.parameterRepository.tipoParametroExists(createParameterDto.tipoParametroId);
+        if (!tipoParametroExists) {
+            throw new NotFoundException(`TipoParametro with ID ${createParameterDto.tipoParametroId} not found`);
+        }
+
+        // Check if tipoAlertaId exists (if provided)
+        if (createParameterDto.tipoAlertaId) {
+            const tipoAlertaExists = await this.parameterRepository.tipoAlertaExists(createParameterDto.tipoAlertaId);
+            if (!tipoAlertaExists) {
+                throw new NotFoundException(`TipoAlerta with ID ${createParameterDto.tipoAlertaId} not found`);
+            }
         }
 
         try {
@@ -92,7 +130,7 @@ export class ParametersService {
 
                     case 'P2002':
                         throw new ConflictException(
-                            `Parameter with name "${createParameterDto.name}" already exists for station ${createParameterDto.stationId}`,
+                            `Parameter relationship already exists for station ${createParameterDto.stationId} and parameter type ${createParameterDto.tipoParametroId}`,
                         );
 
                     default:
@@ -107,6 +145,14 @@ export class ParametersService {
         id: string,
         updateParameterDto: UpdateParameterDto,
     ): Promise<ParameterDto> {
+        // Check if tipoAlertaId exists (if provided)
+        if (updateParameterDto.tipoAlertaId) {
+            const tipoAlertaExists = await this.parameterRepository.tipoAlertaExists(updateParameterDto.tipoAlertaId);
+            if (!tipoAlertaExists) {
+                throw new NotFoundException(`TipoAlerta with ID ${updateParameterDto.tipoAlertaId} not found`);
+            }
+        }
+
         try {
             const parameter = await this.parameterRepository.update(id, updateParameterDto);
             return this.mapToParameterDto(parameter);
@@ -115,7 +161,7 @@ export class ParametersService {
                 switch (error.code) {
                     case 'P2002':
                         throw new ConflictException(
-                            `Parameter with name "${updateParameterDto.name}" already exists for this station`,
+                            `Parameter relationship constraint violation during update`,
                         );
 
                     default:
@@ -139,11 +185,8 @@ export class ParametersService {
         return {
             id: parameter.id,
             stationId: parameter.stationId,
-            name: parameter.name,
-            metric: parameter.metric,
-            calibration: (parameter.calibration ?? {}) as unknown as Record<string, ReadingCalibrationDto>,
-            polynomial: parameter.polynomial ?? undefined,
-            coefficients: parameter.coefficients ?? undefined,
+            tipoParametroId: parameter.tipoParametroId,
+            tipoAlertaId: parameter.tipoAlertaId ?? undefined,
         }
     }
 }

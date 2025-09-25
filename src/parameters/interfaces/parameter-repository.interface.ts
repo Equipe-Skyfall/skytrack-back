@@ -19,8 +19,11 @@ export interface IParameterRepository {
   findAll(filters: ParameterFilters): Promise<ParameterListResult>;
   findById(id: string): Promise<Parameter | null>;
   findByMacAddress(filters: ParameterFilters, macAddress: string): Promise<ParameterListResult>;
+  findByStationId(filters: ParameterFilters, stationId: string): Promise<ParameterListResult>;
   create(data: CreateParameterDto): Promise<Parameter>;
   update(id: string, data: UpdateParameterDto): Promise<Parameter>;
   delete(id: string): Promise<void>;
   exists(id: string): Promise<boolean>;
+  tipoParametroExists(id: string): Promise<boolean>;
+  tipoAlertaExists(id: string): Promise<boolean>;
 }

@@ -3,7 +3,6 @@ import { ALERT_REPOSITORY_TOKEN, IAlertRepository } from "./interfaces/alert-rep
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { Prisma } from "@prisma/client";
 import { RegisteredAlertDto } from "./dto/alert.dto";
-import { Decimal } from "@prisma/client/runtime/library";
 import { CreateAlertDto } from "./dto/create-alert.dto";
 import { UpdateAlertDto } from "./dto/update-alert.dto";
 import { IStationRepository, STATION_REPOSITORY_TOKEN } from "../stations/interfaces/station-repository.interface";
@@ -91,7 +90,7 @@ export class AlertsService {
 
                     case 'P2002':
                         throw new ConflictException(
-                            `An alert for this station, parameter, and level already exists`,
+                            `An alert for this station, parameter, and alert type already exists`,
                         );
 
                     default:
@@ -126,7 +125,7 @@ export class AlertsService {
 
                     case 'P2002':
                         throw new ConflictException(
-                            `An alert for this station, parameter, and level already exists`,
+                            `An alert for this station, parameter, and alert type already exists`,
                         );
 
                     default:
@@ -151,13 +150,11 @@ export class AlertsService {
     private mapToAlertDto(alert: any): RegisteredAlertDto {
         return {
             id: alert.id,
+            data: alert.data,
             stationId: alert.stationId,
-            parameter: alert.parameter.name,
-            description: alert.description,
-            threshold: (alert.threshold as Decimal).toNumber(),
-            level: alert.level,
-            condition: alert.condition,
-            durationMinutes: alert.durationMinutes ?? undefined,
+            parameterId: alert.parameterId,
+            tipoAlertaId: alert.tipoAlertaId,
+            medidasId: alert.medidasId ?? undefined,
             createdAt: alert.createdAt,
         }
     }

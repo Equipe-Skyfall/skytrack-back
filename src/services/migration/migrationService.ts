@@ -1,4 +1,4 @@
-import { Parameter, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { MongoDataService, MongoSensorData } from './mongoDataService';
 import { parse } from 'mathjs';
 
@@ -155,7 +155,7 @@ export class MigrationService {
     stationMappings: Map<string, string>,
     stats: MigrationStats
   ): Promise<void> {
-    const sensorReadings = [];
+    const sensorReadingsData = [];
 
     for (const mongoRecord of batch) {
       try {
@@ -168,13 +168,22 @@ export class MigrationService {
         }
 
         stats.stationsMatched++;
-        const parameters = await this.getParametersByMAC(mongoRecord.uuid);
+        const parameters = await this.getParametersByStationId(stationId);
         console.log(`Parameters for station ${stationId}:`, parameters);
         const mongoReadings = this.extractSensorData(mongoRecord); // guarda os dados dos sensores no padrao JSONB
+        console.log(`Raw sensor data for ${mongoRecord.uuid}:`, mongoReadings);
+
         let parameterValues: Record<string, number> = {};
+        let calibratedReadings: Record<string, number> = {};
 
         if (parameters && parameters.length > 0) {
-          parameterValues = this.processParameterValues(parameters, mongoReadings);
+          const result = this.processParameterValues(parameters, mongoReadings);
+          parameterValues = result.parameterValues;
+          calibratedReadings = result.calibratedReadings;
+          console.log(`Processed parameter values:`, parameterValues);
+          console.log(`Calibrated sensor readings:`, calibratedReadings);
+        } else {
+          console.log(`No parameters found for station ${stationId}`);
         }
 
         // transforma os dados do mongodb em dados compativeis com o postgres
@@ -182,11 +191,19 @@ export class MigrationService {
           stationId,
           timestamp: new Date(mongoRecord.unixtime * 1000),
           mongoId: mongoRecord._id,
-          readings: parameterValues,
-          parameters: parameters?.map(p => p.id) || [],
+          valor: {
+            ...mongoReadings,     // raw sensor data
+            ...calibratedReadings, // calibrated sensor readings
+            ...parameterValues    // processed parameter values
+          },
+          macEstacao: mongoRecord.uuid,
+          uuidEstacao: stationId,
         };
 
-        sensorReadings.push(sensorReading);
+        sensorReadingsData.push({
+          sensorReading,
+          parameterIds: parameters?.map(p => p.id) || []
+        });
       } catch (error) {
         console.error(`Error processing record ${mongoRecord._id}:`, error);
         stats.failedMigrations++;
@@ -194,35 +211,67 @@ export class MigrationService {
     }
 
     // Insere as novas leituras
-    if (sensorReadings.length > 0) {
+    if (sensorReadingsData.length > 0) {
       try {
-        await this.prisma.sensorReading.createMany({
-          data: sensorReadings,
-        });
+        // First, create all sensor readings
+        const createdReadings = [];
+        for (const data of sensorReadingsData) {
+          const createdReading = await this.prisma.sensorReading.create({
+            data: data.sensorReading,
+          });
+          createdReadings.push({
+            reading: createdReading,
+            parameterIds: data.parameterIds
+          });
+        }
 
-        stats.successfulMigrations += sensorReadings.length;
-        console.log(`Successfully inserted ${sensorReadings.length} sensor readings`);
+        // Then, create parameter relationships
+        for (const { reading, parameterIds } of createdReadings) {
+          if (parameterIds.length > 0) {
+            const relationshipData = parameterIds.map(parameterId => ({
+              sensorReadingId: reading.id,
+              parameterId: parameterId
+            }));
+
+            await this.prisma.sensorReadingParameter.createMany({
+              data: relationshipData,
+            });
+          }
+        }
+
+        stats.successfulMigrations += sensorReadingsData.length;
+        console.log(`Successfully inserted ${sensorReadingsData.length} sensor readings with parameter relationships`);
       } catch (error) {
         console.error('Error inserting sensor readings:', error);
-        stats.failedMigrations += sensorReadings.length;
+        stats.failedMigrations += sensorReadingsData.length;
       }
     }
   }
 
-  private async getParametersByMAC(stationId: string): Promise<Parameter[]> {
+  private async getParametersByStationId(stationId: string): Promise<any[]> {
     return this.prisma.parameter.findMany({
             where: { stationId: stationId },
-            orderBy: { name: 'asc' },
+            include: {
+                tipoParametro: true
+            },
         });
   }
 
-  private processParameterValues(parameters: Parameter[], readings: any): Record<string, number> {
+  private processParameterValues(parameters: any[], readings: any): {
+    parameterValues: Record<string, number>;
+    calibratedReadings: Record<string, number>;
+  } {
     const parameterValues: Record<string, number> = {};
+    const calibratedReadings: Record<string, number> = {};
       for (const param of parameters) {
-        const calibration = param.calibration as Record<
+        const tipoParametro = param.tipoParametro;
+        console.log(`Processing parameter: ${tipoParametro.nome}`);
+
+        const calibration = tipoParametro.leitura as Record<
           string,
           { offset?: number; factor?: number }
         >;
+        console.log(`Calibration data:`, calibration);
 
         const calibKeys = Object.keys(calibration || {});
         const matchedEntries: { readingKey: string; calibKey: string }[] = [];
@@ -233,10 +282,12 @@ export class MigrationService {
           );
           if (readingKey) {
             matchedEntries.push({ readingKey, calibKey: key });
+            console.log(`Matched calibration key "${key}" with reading key "${readingKey}"`);
           }
         }
 
         if (matchedEntries.length === 0) {
+          console.log(`No matching readings found for parameter ${tipoParametro.nome}`);
           continue;
         }
 
@@ -249,36 +300,49 @@ export class MigrationService {
 
         let finalValue = calibratedValue;
 
+        // Store calibrated values for all matched entries (for non-polynomial case)
+        for (const { readingKey, calibKey } of matchedEntries) {
+          const value = readings[readingKey];
+          const c = calibration[calibKey];
+          calibratedReadings[readingKey] = c
+            ? (value + (c.offset || 0)) * (c.factor || 1)
+            : value;
+        }
+
         // apply polynomial if exists
-        if (param.polynomial && param.coefficients?.length) {
+        if (tipoParametro.polinomio && tipoParametro.coeficiente?.length) {
           const vars: Record<string, number> = {};
 
           // map coefficients (a0, a1, ...)
-          param.coefficients.forEach((c, i) => {
+          tipoParametro.coeficiente.forEach((c: number, i: number) => {
             vars[`a${i}`] = c;
           });
 
           for (const { readingKey, calibKey } of matchedEntries) {
             const value = readings[readingKey];
             const c = calibration[calibKey];
-            vars[calibKey] = c
+            const calibratedValue = c
               ? (value + (c.offset || 0)) * (c.factor || 1)
               : value;
+            vars[calibKey] = calibratedValue;
+
+            // Store calibrated sensor values
+            calibratedReadings[readingKey] = calibratedValue;
           }
 
           try {
-            finalValue = parse(param.polynomial).evaluate(vars);
+            finalValue = parse(tipoParametro.polinomio).evaluate(vars);
           } catch (err) {
             console.warn(
-              `Failed to evaluate polynomial for parameter ${param.name}, falling back to calibrated value.`,
+              `Failed to evaluate polynomial for parameter ${tipoParametro.nome}, falling back to calibrated value.`,
               err
             );
           }
         }
 
-        parameterValues[param.name] = finalValue;
+        parameterValues[tipoParametro.nome] = finalValue;
       }
-    return parameterValues;
+    return { parameterValues, calibratedReadings };
   }
 
   private extractSensorData(mongoRecord: MongoSensorData): any {

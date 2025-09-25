@@ -13,17 +13,22 @@ export class ParameterRepository implements IParameterRepository {
         const { page, limit, name } = filters;
         const skip = (page - 1) * limit;
 
-        const where = name ? { name } : {};
+        const where = name ? { tipoParametro: { nome: { contains: name, mode: Prisma.QueryMode.insensitive } } } : {};
 
         const [parameters, total] = await Promise.all([
                 this.prisma.parameter.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: { name: 'asc' },
-                include: { alerts: true, station: true },
+                orderBy: { tipoParametro: { nome: 'asc' } },
+                include: {
+                    alerts: true,
+                    station: true,
+                    tipoParametro: true,
+                    tipoAlerta: true
+                },
             }),
-            this.prisma.parameter.count(),
+            this.prisma.parameter.count({ where }),
         ]);
 
         return { parameters, total };
@@ -32,7 +37,12 @@ export class ParameterRepository implements IParameterRepository {
     async findById(id: string): Promise<Parameter | null> {
         return this.prisma.parameter.findUnique({
             where: { id },
-            include: { alerts: true, station: true },
+            include: {
+                alerts: true,
+                station: true,
+                tipoParametro: true,
+                tipoAlerta: true
+            },
         });
     }
 
@@ -45,7 +55,7 @@ export class ParameterRepository implements IParameterRepository {
 
         const where = {
             stationId: macAddress,
-            ...(name ? { name } : {}),
+            ...(name ? { tipoParametro: { nome: { contains: name, mode: Prisma.QueryMode.insensitive } } } : {}),
         }
 
         const [parameters, total] = await Promise.all([
@@ -53,10 +63,46 @@ export class ParameterRepository implements IParameterRepository {
                 where,
                 skip,
                 take: limit,
-                orderBy: { name: 'asc' },
-                include: { alerts: true, station: true },
+                orderBy: { tipoParametro: { nome: 'asc' } },
+                include: {
+                    alerts: true,
+                    station: true,
+                    tipoParametro: true,
+                    tipoAlerta: true
+                },
             }),
             this.prisma.parameter.count({ where: { stationId: macAddress } }),
+        ]);
+
+        return { parameters, total };
+    }
+
+    async findByStationId(
+        filters: ParameterFilters,
+        stationId: string,
+    ): Promise<ParameterListResult> {
+        const { page, limit, name } = filters;
+        const skip = (page - 1) * limit;
+
+        const where = {
+            stationId: stationId,
+            ...(name ? { tipoParametro: { nome: { contains: name, mode: Prisma.QueryMode.insensitive } } } : {}),
+        }
+
+        const [parameters, total] = await Promise.all([
+            this.prisma.parameter.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { tipoParametro: { nome: 'asc' } },
+                include: {
+                    alerts: true,
+                    station: true,
+                    tipoParametro: true,
+                    tipoAlerta: true
+                },
+            }),
+            this.prisma.parameter.count({ where: { stationId: stationId } }),
         ]);
 
         return { parameters, total };
@@ -66,9 +112,13 @@ export class ParameterRepository implements IParameterRepository {
         return this.prisma.parameter.create({
             data: {
                 ...data,
-                calibration: data.calibration as unknown as Prisma.InputJsonValue,
             },
-            include: { alerts: true, station: true },
+            include: {
+                alerts: true,
+                station: true,
+                tipoParametro: true,
+                tipoAlerta: true
+            },
         });
     }
 
@@ -77,9 +127,13 @@ export class ParameterRepository implements IParameterRepository {
                 where: { id },
                 data: {
                 ...data,
-                calibration: data.calibration as unknown as Prisma.InputJsonValue,
             },
-            include: { alerts: true, station: true },
+            include: {
+                alerts: true,
+                station: true,
+                tipoParametro: true,
+                tipoAlerta: true
+            },
         });
     }
 
@@ -95,5 +149,21 @@ export class ParameterRepository implements IParameterRepository {
             select: { id: true },
         });
         return parameter !== null;
+    }
+
+    async tipoParametroExists(id: string): Promise<boolean> {
+        const tipoParametro = await this.prisma.tipoParametro.findUnique({
+            where: { id },
+            select: { id: true },
+        });
+        return tipoParametro !== null;
+    }
+
+    async tipoAlertaExists(id: string): Promise<boolean> {
+        const tipoAlerta = await this.prisma.tipoAlerta.findUnique({
+            where: { id },
+            select: { id: true },
+        });
+        return tipoAlerta !== null;
     }
 }

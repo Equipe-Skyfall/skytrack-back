@@ -9,6 +9,14 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
   ],
   plugins: ['@typescript-eslint'],
+  ignorePatterns: [
+    'node_modules/',
+    'dist/',
+    'build/',
+    'src/generated/**/*',
+    'prisma/generated/**/*',
+    '**/*.d.ts'
+  ],
   rules: {
     '@typescript-eslint/no-unused-vars': [
   'error',
