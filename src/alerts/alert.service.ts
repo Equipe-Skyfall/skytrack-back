@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { ALERT_REPOSITORY_TOKEN, IAlertRepository } from "./interfaces/alert-repository.interface";
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
-import { Prisma, RegisteredAlerts } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { Decimal } from "@prisma/client/runtime/library";
 import { CreateAlertDto } from "./dto/create-alert.dto";
