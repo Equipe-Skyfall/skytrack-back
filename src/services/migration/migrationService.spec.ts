@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaClient, Parameter, MeteorologicalStation } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { MigrationService, MigrationConfig } from './migrationService';
 import { MongoDataService, MongoSensorData } from './mongoDataService';
 
@@ -377,7 +377,7 @@ describe('MigrationService', () => {
       mongoService.disconnect.mockResolvedValue();
 
       // Execute
-      const result = await service.migrate();
+      await service.migrate();
 
       // Assert
       expect(mongoService.fetchDataSinceTimestamp).toHaveBeenCalledWith(0);

@@ -1,4 +1,4 @@
-import { Parameter, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { MongoDataService, MongoSensorData } from './mongoDataService';
 import { parse } from 'mathjs';
 
@@ -156,7 +156,6 @@ export class MigrationService {
     stats: MigrationStats
   ): Promise<void> {
     const sensorReadingsData = [];
-    const parameterRelations = [];
 
     for (const mongoRecord of batch) {
       try {
