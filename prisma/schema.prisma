@@ -36,10 +36,11 @@ model SensorReading {
   timestamp  DateTime
   mongoId    String                @unique @map("mongo_id")
   readings   Json                  // JSONB field for flexible sensor data storage
-  // parameters Json                  // JSONB field for the processed data after going through the parameters
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
   station    MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  
+  parameters SensorReadingParameter[] // join table
 
   @@index([stationId])
   @@index([timestamp])
@@ -54,14 +55,18 @@ model Parameter {
   name                String
   metric              String
 
-  readingCoefficients Json       // per-reading offsets/factors
+  calibration         Json       // per-reading offsets/factors
   polynomial          String?    // "a0 + a1*temperatura + a2*umidade^2"
   coefficients        Float[]    // [1.2, 0.95, -0.002] corresponde à [a0, a1, a2]
 
   station             MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
   alerts              RegisteredAlerts[]
 
+  readings            SensorReadingParameter[] // join table
+
   @@index([stationId])
+  @@index([name])
+  @@unique([stationId, name])
   @@map("parameter")
 }
 
@@ -87,23 +92,6 @@ model RegisteredAlerts {
   @@map("registered_alerts")
 }
 
-// model TriggeredAlerts {
-//   id        String   @id @default(uuid())
-//   stationId String
-//   alertId   String
-//   timestamp DateTime @default(now())
-//   value     Decimal
-
-//   station   MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
-//   alert     RegisteredAlerts      @relation(fields: [alertId], references: [id], onDelete: Cascade)
-
-//   @@index([stationId])
-//   @@index([alertId])
-//   @@index([stationId, alertId])
-//   @@unique([alertId, timestamp])
-//   @@map("triggered_alerts")
-// }
-
 model MigrationState {
   id                String   @id @default(uuid())
   name              String   @unique
@@ -114,6 +102,17 @@ model MigrationState {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("migration_states")
+}
+
+model SensorReadingParameter {
+  sensorReading   SensorReading @relation(fields: [sensorReadingId], references: [id], onDelete: Cascade)
+  sensorReadingId String
+
+  parameter       Parameter     @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  parameterId     String
+
+  @@id([sensorReadingId, parameterId])
+  @@map("sensor_reading_parameters")
 }
 
 enum MeteorologicalStationStatus {

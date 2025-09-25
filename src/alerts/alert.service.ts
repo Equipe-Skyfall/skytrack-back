@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { ALERT_REPOSITORY_TOKEN, IAlertRepository } from "./interfaces/alert-repository.interface";
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { Prisma, RegisteredAlerts } from "@prisma/client";
@@ -98,7 +98,7 @@ export class AlertsService {
                         throw new BadRequestException(`Failed to create alert: ${error.message}`);
                 }
             }
-            throw new BadRequestException('Unexpected error creating alert');
+            throw new InternalServerErrorException('Unexpected error creating alert');
         }
     }
 
@@ -135,7 +135,7 @@ export class AlertsService {
                         );
                 }
             }
-            throw new BadRequestException('Unexpected error updating alert');
+            throw new InternalServerErrorException('Unexpected error updating alert');
         }
     }
 
