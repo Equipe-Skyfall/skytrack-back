@@ -73,4 +73,12 @@ export class StationRepository implements IStationRepository {
     });
     return station !== null;
   }
+
+  async existsByMAC(macAddress: string): Promise<boolean> {
+    const station = await this.prisma.meteorologicalStation.findUnique({
+      where: { macAddress },
+      select: { macAddress: true },
+    });
+    return station !== null;
+  }
 }
