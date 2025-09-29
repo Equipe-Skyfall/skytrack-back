@@ -24,4 +24,5 @@ export interface IStationRepository {
   update(id: string, data: UpdateStationDto): Promise<MeteorologicalStation>;
   delete(id: string): Promise<void>;
   exists(id: string): Promise<boolean>;
+  existsByMAC(macAddress: string): Promise<boolean>;
 }

@@ -23,13 +23,11 @@ export class CreateStationDto {
     description: 'MAC address of the ESP32/sensor device',
     maxLength: 50,
     example: '24:6F:28:AE:52:7C',
-    required: false,
   })
-  @IsOptional()
   @IsString()
   @MaxLength(50)
   @IsUniqueMacAddress()
-  macAddress?: string;
+  macAddress!: string;
 
   @ApiProperty({
     description: 'Station latitude',
