@@ -5,4 +5,8 @@ import { JwtAuthGuard } from './auth.guard';
   providers: [JwtAuthGuard],
   exports: [JwtAuthGuard],
 })
-export class AuthModule {}
+export class AuthModule {
+  constructor() {
+    console.log('🔐 [AUTH MODULE] AuthModule instantiated');
+  }
+}

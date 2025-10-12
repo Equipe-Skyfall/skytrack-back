@@ -7,16 +7,23 @@ import { AppModule } from './app.module';
 import { JwtAuthGuard } from './auth/auth.guard';
 
 async function bootstrap() {
+  console.log('🚀 [BOOTSTRAP] Starting application...');
   const app = await NestFactory.create(AppModule);
 
   // Configure cookie parser
+  console.log('🍪 [BOOTSTRAP] Configuring cookie parser...');
   app.use(cookieParser());
 
   // Configure class-validator to use NestJS dependency injection
+  console.log('🔧 [BOOTSTRAP] Configuring class-validator...');
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // Global authentication guard
-  app.useGlobalGuards(new JwtAuthGuard());
+  console.log('🛡️ [BOOTSTRAP] Registering global auth guard...');
+  const authGuard = new JwtAuthGuard();
+  console.log('🛡️ [BOOTSTRAP] Auth guard instance created:', !!authGuard);
+  app.useGlobalGuards(authGuard);
+  console.log('🛡️ [BOOTSTRAP] Global auth guard registered successfully');
 
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
@@ -49,8 +56,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port);
 
-  console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${port}`);
-  console.log(`📚 API Documentation available at http://localhost:${port}/api-docs`);
+  console.log(`🚀 [BOOTSTRAP] Server running in ${process.env.NODE_ENV || 'development'} mode on port ${port}`);
+  console.log(`📚 [BOOTSTRAP] API Documentation available at http://localhost:${port}/api-docs`);
+  console.log(`🛡️ [BOOTSTRAP] Authentication guard is active and protecting all routes`);
 }
 
 bootstrap();
