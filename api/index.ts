@@ -45,8 +45,13 @@ async function getApp() {
 
     // CORS configuration
     console.log('🌐 [VERCEL] Configuring CORS with credentials enabled...');
+    const corsOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+      : ['http://localhost:5173']; // fallback for development
+
+    console.log('🌐 [VERCEL] CORS origins:', corsOrigins);
     app.enableCors({
-      origin: '*',
+      origin: corsOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
       credentials: true,
