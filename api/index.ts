@@ -3,12 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
+import { JwtAuthGuard } from '../src/auth/auth.guard';
 
 let cachedApp: any = null;
 
 async function getApp() {
   if (!cachedApp) {
+    console.log('🚀 [VERCEL] Starting Vercel serverless function...');
+
     // Set environment variable to indicate serverless environment
     process.env.IS_SERVERLESS = 'true';
 
@@ -17,8 +21,20 @@ async function getApp() {
       logger: ['error', 'warn', 'log'],
     });
 
+    // Configure cookie parser
+    console.log('🍪 [VERCEL] Configuring cookie parser...');
+    app.use(cookieParser());
+
     // Configure class-validator to use NestJS dependency injection
+    console.log('🔧 [VERCEL] Configuring class-validator...');
     useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
+    // Global authentication guard
+    console.log('🛡️ [VERCEL] Registering global auth guard...');
+    const authGuard = new JwtAuthGuard();
+    console.log('🛡️ [VERCEL] Auth guard instance created:', !!authGuard);
+    app.useGlobalGuards(authGuard);
+    console.log('🛡️ [VERCEL] Global auth guard registered successfully');
 
     // Global validation pipe
     app.useGlobalPipes(new ValidationPipe({
@@ -28,11 +44,12 @@ async function getApp() {
     }));
 
     // CORS configuration
+    console.log('🌐 [VERCEL] Configuring CORS with credentials enabled...');
     app.enableCors({
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      credentials: false,
+      credentials: true,
     });
 
     // Global prefix for API routes (excluding root route)
@@ -60,6 +77,9 @@ async function getApp() {
     });
 
     await app.init();
+    console.log('✅ [VERCEL] NestJS application initialized successfully');
+    console.log('🛡️ [VERCEL] Authentication guard is active and protecting all routes');
+
     cachedApp = app.getHttpAdapter().getInstance();
   }
   return cachedApp;
