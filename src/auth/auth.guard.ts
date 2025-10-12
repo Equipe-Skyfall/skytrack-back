@@ -44,7 +44,7 @@ export class JwtAuthGuard implements CanActivate {
 
     console.log('🔍 [AUTH GUARD] Raw cookies:', request.cookies);
 
-    const token = this.extractTokenFromCookies(request);
+    const token = this.extractToken(request);
     console.log('🔍 [AUTH GUARD] Token extracted:', token ? 'Present' : 'Missing');
 
     if (!token) {
@@ -63,9 +63,23 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private extractTokenFromCookies(request: Request): string | undefined {
-    // Extract token from cookies
-    const token = request.cookies?.token;
-    return token;
+  private extractToken(request: Request): string | undefined {
+    // Try Authorization header first (Bearer token)
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const bearerToken = authHeader.substring(7); // Remove "Bearer " prefix
+      console.log('🔑 [AUTH GUARD] Token found in Authorization header');
+      return bearerToken;
+    }
+
+    // Fallback to cookies
+    const cookieToken = request.cookies?.token;
+    if (cookieToken) {
+      console.log('🍪 [AUTH GUARD] Token found in cookies');
+      return cookieToken;
+    }
+
+    console.log('❌ [AUTH GUARD] No token found in Authorization header or cookies');
+    return undefined;
   }
 }
