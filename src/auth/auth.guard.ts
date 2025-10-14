@@ -4,8 +4,10 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 interface JwtPayload {
   userId: string;
@@ -24,12 +26,23 @@ interface AuthenticatedRequest extends Request {
 export class JwtAuthGuard implements CanActivate {
   private readonly jwtSecret = 'fycknudiasdnoasdericdahgayasodp';
 
-  constructor() {
+  constructor(private reflector: Reflector) {
     console.log('🛡️ [JWT AUTH GUARD] JwtAuthGuard constructor called');
   }
 
   canActivate(context: ExecutionContext): boolean {
     console.log('🔍 [AUTH GUARD] canActivate called at:', new Date().toISOString());
+
+    // Check if route is marked as public
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPublic) {
+      console.log('🔓 [AUTH GUARD] Public route detected, skipping authentication');
+      return true;
+    }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 

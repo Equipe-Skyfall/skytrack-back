@@ -20,7 +20,7 @@ async function bootstrap() {
 
   // Global authentication guard
   console.log('🛡️ [BOOTSTRAP] Registering global auth guard...');
-  const authGuard = new JwtAuthGuard();
+  const authGuard = app.get(JwtAuthGuard);
   console.log('🛡️ [BOOTSTRAP] Auth guard instance created:', !!authGuard);
   app.useGlobalGuards(authGuard);
   console.log('🛡️ [BOOTSTRAP] Global auth guard registered successfully');
