@@ -5,9 +5,8 @@ import { useContainer } from 'class-validator';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
-import { JwtAuthGuard } from '../src/auth/auth.guard';
 
-let cachedApp: any = null;
+let cachedApp: unknown = null;
 
 async function getApp() {
   if (!cachedApp) {
@@ -29,12 +28,8 @@ async function getApp() {
     console.log('🔧 [VERCEL] Configuring class-validator...');
     useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-    // Global authentication guard
-    console.log('🛡️ [VERCEL] Registering global auth guard...');
-    const authGuard = new JwtAuthGuard();
-    console.log('🛡️ [VERCEL] Auth guard instance created:', !!authGuard);
-    app.useGlobalGuards(authGuard);
-    console.log('🛡️ [VERCEL] Global auth guard registered successfully');
+    // Global authentication guard is now registered via APP_GUARD in AuthModule
+    console.log('🛡️ [VERCEL] Global auth guard registered via APP_GUARD provider');
 
     // Global validation pipe
     app.useGlobalPipes(new ValidationPipe({
@@ -93,7 +88,7 @@ async function getApp() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
 
-    const app = await getApp();
+    const app = await getApp() as (req: VercelRequest, res: VercelResponse) => void;
     return app(req, res);
   } catch (error) {
     console.error('Handler error:', error);

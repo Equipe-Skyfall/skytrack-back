@@ -4,7 +4,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { JwtAuthGuard } from './auth/auth.guard';
 
 async function bootstrap() {
   console.log('🚀 [BOOTSTRAP] Starting application...');
@@ -18,12 +17,8 @@ async function bootstrap() {
   console.log('🔧 [BOOTSTRAP] Configuring class-validator...');
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-  // Global authentication guard
-  console.log('🛡️ [BOOTSTRAP] Registering global auth guard...');
-  const authGuard = app.get(JwtAuthGuard);
-  console.log('🛡️ [BOOTSTRAP] Auth guard instance created:', !!authGuard);
-  app.useGlobalGuards(authGuard);
-  console.log('🛡️ [BOOTSTRAP] Global auth guard registered successfully');
+  // Global authentication guard is now registered via APP_GUARD in AuthModule
+  console.log('🛡️ [BOOTSTRAP] Global auth guard registered via APP_GUARD provider');
 
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
