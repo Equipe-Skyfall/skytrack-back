@@ -9,6 +9,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { ParameterModule } from './parameters/parameter.module';
 import { TipoParametroModule } from './tipo-parametro/tipo-parametro.module';
 import { TipoAlertaModule } from './tipo-alerta/tipo-alerta.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TipoAlertaModule } from './tipo-alerta/tipo-alerta.module';
         '.env',
       ],
     }),
+    AuthModule,
     PrismaModule,
     HealthModule,
     StationsModule,
