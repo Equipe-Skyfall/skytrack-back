@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TipoParametroService } from './tipo-parametro.service';
 import { CreateTipoParametroDto } from './dto/create-tipo-parametro.dto';
@@ -21,6 +22,7 @@ import { UpdateTipoParametroDto } from './dto/update-tipo-parametro.dto';
 import { TipoParametroDto } from './dto/tipo-parametro.dto';
 
 @ApiTags('Tipo Parametro')
+@ApiBearerAuth('JWT-auth')
 @Controller('tipo-parametro')
 export class TipoParametroController {
   constructor(private readonly tipoParametroService: TipoParametroService) {}

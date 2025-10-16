@@ -1,12 +1,13 @@
 import { Body, Controller, Delete, Get, HttpStatus, Param, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
 import { AlertsService } from "./alert.service";
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
 import { UpdateAlertDto } from "./dto/update-alert.dto";
 
 @ApiTags('RegisteredAlerts')
+@ApiBearerAuth('JWT-auth')
 @Controller('alerts')
 export class AlertsControllers {
     constructor(private readonly alertsService: AlertsService) {}

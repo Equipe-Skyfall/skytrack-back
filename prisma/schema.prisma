@@ -16,12 +16,11 @@ model MeteorologicalStation {
   status         MeteorologicalStationStatus @default(ACTIVE)
   createdAt      DateTime                    @default(now()) @map("created_at")
   updatedAt      DateTime                    @updatedAt @map("updated_at")
-  address              String?                     @db.VarChar(255)
-  macAddress           String?                     @unique @map("mac_address") @db.VarChar(50)
-  sensorReadings       SensorReading[]
-  parameters           Parameter[]
-  alerts               RegisteredAlerts[]
-  // triggeredAlerts      TriggeredAlerts[]
+  address        String?                     @db.VarChar(255)
+  macAddress     String?                     @unique @map("mac_address") @db.VarChar(50)
+  parameters     Parameter[]
+  alerts         RegisteredAlerts[]
+  sensorReadings SensorReading[]
 
   @@index([status])
   @@index([latitude, longitude])
@@ -31,19 +30,18 @@ model MeteorologicalStation {
 }
 
 model SensorReading {
-  id              String                @id @default(uuid())
-  stationId       String                @map("station_id")  // This is the station UUID from MAC address lookup
-  timestamp       DateTime
-  mongoId         String                @unique @map("mongo_id")
-  macEstacao      String?               @map("mac_estacao") // station MAC as linestring type
-  uuidEstacao     String?               @map("uuid_estacao")
-  valor           Json                  @map("valor") // renamed from readings
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
-  station         MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
-
-  parameters      SensorReadingParameter[] // join table
-  alerts          RegisteredAlerts[]       // reverse relation from medidas FK
+  id          String                   @id @default(uuid())
+  stationId   String                   @map("station_id")
+  timestamp   DateTime
+  mongoId     String                   @unique @map("mongo_id")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  macEstacao  String?                  @map("mac_estacao")
+  uuidEstacao String?                  @map("uuid_estacao")
+  valor       Json                     @map("valor")
+  alerts      RegisteredAlerts[]
+  parameters  SensorReadingParameter[]
+  station     MeteorologicalStation    @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@index([stationId])
   @@index([timestamp])
@@ -53,75 +51,69 @@ model SensorReading {
 }
 
 model TipoParametro {
-  id           String  @id @default(uuid())
-  jsonId       String  @map("json_id")
-  nome         String
-  metrica      String
-  polinomio    String?
-  coeficiente  Float[]
-  leitura      Json    // factor/offset configuration
-
-  parameters   Parameter[]
+  id          String      @id @default(uuid())
+  jsonId      String      @map("json_id")
+  nome        String
+  metrica     String
+  polinomio   String?
+  coeficiente Float[]
+  leitura     Json
+  parameters  Parameter[]
 
   @@map("tipo_parametro")
 }
 
 model Parameter {
-  id                  String   @id @default(uuid())
-  stationId           String   @map("station_id")
-  tipoParametroId     String   @map("tipo_parametro_id")
-  tipoAlertaId        String?  @map("tipo_alerta_id")
+  id              String                   @id @default(uuid())
+  stationId       String                   @map("station_id")
+  tipoParametroId String                   @map("tipo_parametro_id")
+  tipoAlertaId    String?                  @map("tipo_alerta_id")
+  station         MeteorologicalStation    @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  tipoAlerta      TipoAlerta?              @relation(fields: [tipoAlertaId], references: [id])
+  tipoParametro   TipoParametro            @relation(fields: [tipoParametroId], references: [id], onDelete: Cascade)
+  alerts          RegisteredAlerts[]       @relation("ParameterAlerts")
+  readings        SensorReadingParameter[]
 
-  station             MeteorologicalStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  tipoParametro       TipoParametro @relation(fields: [tipoParametroId], references: [id], onDelete: Cascade)
-  tipoAlerta          TipoAlerta? @relation(fields: [tipoAlertaId], references: [id], onDelete: SetNull)
-  alerts              RegisteredAlerts[] @relation("ParameterAlerts")
-
-  readings            SensorReadingParameter[] // join table
-
+  @@unique([stationId, tipoParametroId])
   @@index([stationId])
   @@index([tipoParametroId])
   @@index([tipoAlertaId])
-  @@unique([stationId, tipoParametroId])
   @@map("parameter")
 }
 
 model TipoAlerta {
-  id        String   @id @default(uuid())
-  tipo      String
-  publica   Boolean
-  condicao  String   // enum for conditions
-  valor     String
-  criadoEm  DateTime @default(now()) @map("criado_em")
-  limite    Decimal
-  nivel     String   @default("warning")
-  duracaoMin Int?    @map("duracao_min")
-
-  parameters Parameter[]     // parameters linked to this alert type
+  id         String             @id @default(uuid())
+  tipo       String
+  publica    Boolean
+  condicao   String
+  criadoEm   DateTime           @default(now()) @map("criado_em")
+  limite     Decimal
+  nivel      String             @default("warning")
+  duracaoMin Int?               @map("duracao_min")
+  parameters Parameter[]
   alerts     RegisteredAlerts[]
 
   @@map("tipo_alerta")
 }
 
 model RegisteredAlerts {
-  id              String   @id @default(uuid())
-  data            DateTime @default(now())
-  stationId       String   @map("station_id")
-  parameterId     String   @map("parameter_id")
-  tipoAlertaId    String   @map("tipo_alerta_id")
-  medidasId       String?  @map("medidas_id") // FK to SensorReading
-  createdAt       DateTime @default(now()) @map("created_at")
+  id           String                @id @default(uuid())
+  stationId    String                @map("station_id")
+  parameterId  String                @map("parameter_id")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  data         DateTime              @default(now())
+  medidasId    String?               @map("medidas_id")
+  tipoAlertaId String                @map("tipo_alerta_id")
+  medidas      SensorReading?        @relation(fields: [medidasId], references: [id])
+  parameter    Parameter             @relation("ParameterAlerts", fields: [parameterId], references: [id], onDelete: Cascade)
+  station      MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
+  tipoAlerta   TipoAlerta            @relation(fields: [tipoAlertaId], references: [id], onDelete: Cascade)
 
-  station         MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
-  parameter       Parameter             @relation("ParameterAlerts", fields: [parameterId], references: [id], onDelete: Cascade)
-  tipoAlerta      TipoAlerta           @relation(fields: [tipoAlertaId], references: [id], onDelete: Cascade)
-  medidas         SensorReading?       @relation(fields: [medidasId], references: [id], onDelete: SetNull)
-
+  @@unique([stationId, parameterId, tipoAlertaId])
   @@index([stationId])
   @@index([parameterId])
   @@index([tipoAlertaId])
   @@index([medidasId])
-  @@unique([stationId, parameterId, tipoAlertaId])
   @@map("registered_alerts")
 }
 
@@ -138,11 +130,10 @@ model MigrationState {
 }
 
 model SensorReadingParameter {
-  sensorReading   SensorReading @relation(fields: [sensorReadingId], references: [id], onDelete: Cascade)
   sensorReadingId String
-
-  parameter       Parameter     @relation(fields: [parameterId], references: [id], onDelete: Cascade)
   parameterId     String
+  parameter       Parameter     @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  sensorReading   SensorReading @relation(fields: [sensorReadingId], references: [id], onDelete: Cascade)
 
   @@id([sensorReadingId, parameterId])
   @@map("sensor_reading_parameters")

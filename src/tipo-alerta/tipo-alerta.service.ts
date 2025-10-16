@@ -94,7 +94,6 @@ export class TipoAlertaService {
             tipo: tipoAlerta.tipo,
             publica: tipoAlerta.publica,
             condicao: tipoAlerta.condicao,
-            valor: tipoAlerta.valor,
             criadoEm: tipoAlerta.criadoEm,
             limite: typeof tipoAlerta.limite === 'object' && tipoAlerta.limite instanceof Decimal
                 ? tipoAlerta.limite.toNumber()
