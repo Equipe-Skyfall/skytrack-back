@@ -10,6 +10,7 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { MigrationService } from './migration.service';
 import {
@@ -18,6 +19,7 @@ import {
 } from './dto/migration-stats.dto';
 
 @ApiTags('Migration')
+@ApiBearerAuth('JWT-auth')
 @Controller('migration')
 export class MigrationController {
   constructor(private readonly migrationService: MigrationService) {}

@@ -27,14 +27,6 @@ export class CreateTipoAlertaDto {
     condicao: string;
 
     @ApiProperty({
-        description: 'Alert value as string',
-        example: '35.0'
-    })
-    @IsString()
-    @IsNotEmpty()
-    valor: string;
-
-    @ApiProperty({
         description: 'Alert threshold limit',
         example: 35.0
     })

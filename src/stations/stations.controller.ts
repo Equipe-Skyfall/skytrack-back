@@ -16,6 +16,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Public } from '../auth/public.decorator';
 import { StationsService } from './stations.service';
@@ -25,6 +26,7 @@ import { StationDto } from './dto/station.dto';
 import { StationsListDto } from './dto/stations-list.dto';
 
 @ApiTags('Stations')
+@ApiBearerAuth('JWT-auth')
 @Controller('stations')
 export class StationsController {
   constructor(private readonly stationsService: StationsService) {}

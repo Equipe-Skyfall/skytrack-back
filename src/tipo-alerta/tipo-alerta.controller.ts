@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TipoAlertaService } from './tipo-alerta.service';
 import { CreateTipoAlertaDto } from './dto/create-tipo-alerta.dto';
@@ -21,6 +22,7 @@ import { UpdateTipoAlertaDto } from './dto/update-tipo-alerta.dto';
 import { TipoAlertaDto } from './dto/tipo-alerta.dto';
 
 @ApiTags('Tipo Alerta')
+@ApiBearerAuth('JWT-auth')
 @Controller('tipo-alerta')
 export class TipoAlertaController {
   constructor(private readonly tipoAlertaService: TipoAlertaService) {}
