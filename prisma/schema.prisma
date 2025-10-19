@@ -109,7 +109,6 @@ model RegisteredAlerts {
   station      MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
   tipoAlerta   TipoAlerta            @relation(fields: [tipoAlertaId], references: [id], onDelete: Cascade)
 
-  @@unique([stationId, parameterId, tipoAlertaId])
   @@index([stationId])
   @@index([parameterId])
   @@index([tipoAlertaId])
