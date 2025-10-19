@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ISensorReadingsRepository, SENSOR_READINGS_REPOSITORY_TOKEN } from "./interfaces/sensor-readings-repository.interface";
 import { SensorReadingsListDto } from "./dto/sensor-readings-list.dto";
-import { SensorReading, TipoParametro } from "@prisma/client";
+import { TipoParametro } from "@prisma/client";
 import { SensorReadingDto } from "./dto/sensor-reading.dto";
 import { TipoParametroDto } from "../tipo-parametro/dto/tipo-parametro.dto";
 import { RegisteredAlertDto } from "../alerts/dto/alert.dto";
