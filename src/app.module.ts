@@ -10,6 +10,7 @@ import { ParameterModule } from './parameters/parameter.module';
 import { TipoParametroModule } from './tipo-parametro/tipo-parametro.module';
 import { TipoAlertaModule } from './tipo-alerta/tipo-alerta.module';
 import { AuthModule } from './auth/auth.module';
+import { SensorReadingsModule } from './sensor-readings/sensor-readings.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AuthModule } from './auth/auth.module';
     ParameterModule,
     TipoParametroModule,
     TipoAlertaModule,
+    SensorReadingsModule
   ],
   controllers: [AppController],
 })
