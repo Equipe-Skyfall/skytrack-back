@@ -4,7 +4,6 @@ import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
-import { UpdateAlertDto } from "./dto/update-alert.dto";
 
 @ApiTags('RegisteredAlerts')
 @ApiBearerAuth('JWT-auth')
@@ -163,10 +162,8 @@ export class AlertsControllers {
     })
     async updateAlert(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() updateAlertDto: UpdateAlertDto,
     ): Promise<RegisteredAlertDto> {
-        (updateAlertDto as any).id = id;
-        return this.alertsService.updateAlert(id, updateAlertDto)
+        return this.alertsService.updateAlert(id)
     }
 
     @Delete(':id')

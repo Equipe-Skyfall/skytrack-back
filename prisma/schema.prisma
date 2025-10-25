@@ -104,6 +104,7 @@ model RegisteredAlerts {
   data         DateTime              @default(now())
   medidasId    String?               @map("medidas_id")
   tipoAlertaId String                @map("tipo_alerta_id")
+  active       Boolean               @default(true) @map("is_active")
   medidas      SensorReading?        @relation(fields: [medidasId], references: [id])
   parameter    Parameter             @relation("ParameterAlerts", fields: [parameterId], references: [id], onDelete: Cascade)
   station      MeteorologicalStation @relation(fields: [stationId], references: [macAddress], onDelete: Cascade)
