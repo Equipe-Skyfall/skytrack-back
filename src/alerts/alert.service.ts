@@ -111,8 +111,6 @@ export class AlertsService {
             return this.mapToAlertDto(alert);
         } catch (error: any) {
             if (error instanceof Prisma.PrismaClientKnownRequestError) {
-                const field = error.meta?.field_name as string | undefined;
-
                 switch (error.code) {
                     case 'P2002':
                         throw new ConflictException(
