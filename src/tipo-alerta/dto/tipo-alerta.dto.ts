@@ -26,12 +26,6 @@ export class TipoAlertaDto {
     condicao: string;
 
     @ApiProperty({
-        description: 'Alert value as string',
-        example: '35.0'
-    })
-    valor: string;
-
-    @ApiProperty({
         description: 'Creation date',
         example: '2024-01-01T00:00:00.000Z'
     })

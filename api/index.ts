@@ -3,12 +3,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
-let cachedApp: any = null;
+let cachedApp: unknown = null;
 
 async function getApp() {
   if (!cachedApp) {
+    console.log('🚀 [VERCEL] Starting Vercel serverless function...');
+
     // Set environment variable to indicate serverless environment
     process.env.IS_SERVERLESS = 'true';
 
@@ -17,8 +20,16 @@ async function getApp() {
       logger: ['error', 'warn', 'log'],
     });
 
+    // Configure cookie parser
+    console.log('🍪 [VERCEL] Configuring cookie parser...');
+    app.use(cookieParser());
+
     // Configure class-validator to use NestJS dependency injection
+    console.log('🔧 [VERCEL] Configuring class-validator...');
     useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
+    // Global authentication guard is now registered via APP_GUARD in AuthModule
+    console.log('🛡️ [VERCEL] Global auth guard registered via APP_GUARD provider');
 
     // Global validation pipe
     app.useGlobalPipes(new ValidationPipe({
@@ -28,11 +39,17 @@ async function getApp() {
     }));
 
     // CORS configuration
+    console.log('🌐 [VERCEL] Configuring CORS with credentials enabled...');
+    const corsOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+      : ['http://localhost:5173']; // fallback for development
+
+    console.log('🌐 [VERCEL] CORS origins:', corsOrigins);
     app.enableCors({
-      origin: '*',
+      origin: corsOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      credentials: false,
+      credentials: true,
     });
 
     // Global prefix for API routes (excluding root route)
@@ -60,6 +77,9 @@ async function getApp() {
     });
 
     await app.init();
+    console.log('✅ [VERCEL] NestJS application initialized successfully');
+    console.log('🛡️ [VERCEL] Authentication guard is active and protecting all routes');
+
     cachedApp = app.getHttpAdapter().getInstance();
   }
   return cachedApp;
@@ -68,7 +88,7 @@ async function getApp() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
 
-    const app = await getApp();
+    const app = await getApp() as (req: VercelRequest, res: VercelResponse) => void;
     return app(req, res);
   } catch (error) {
     console.error('Handler error:', error);

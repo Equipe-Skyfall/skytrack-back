@@ -5,10 +5,11 @@ import { ParametersListDto } from "./dto/parameters-list.dto";
 import { ParameterDto } from "./dto/parameter.dto";
 import { CreateParameterDto } from "./dto/create-parameter.dto";
 import { UpdateParameterDto } from "./dto/update-parameter.dto";
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { ParametersService } from "./parameter.service";
 
 @ApiTags('Parameters')
+@ApiBearerAuth('JWT-auth')
 @Controller('parameters')
 export class ParametersController {
     constructor(private readonly parametersService: ParametersService) {}

@@ -16,7 +16,9 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Public } from '../auth/public.decorator';
 import { StationsService } from './stations.service';
 import { CreateStationDto, StationStatus } from './dto/create-station.dto';
 import { UpdateStationDto } from './dto/update-station.dto';
@@ -24,10 +26,12 @@ import { StationDto } from './dto/station.dto';
 import { StationsListDto } from './dto/stations-list.dto';
 
 @ApiTags('Stations')
+@ApiBearerAuth('JWT-auth')
 @Controller('stations')
 export class StationsController {
   constructor(private readonly stationsService: StationsService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'Get all stations' })
   @ApiQuery({
@@ -67,6 +71,7 @@ export class StationsController {
     );
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get station by ID' })
   @ApiParam({
@@ -90,6 +95,7 @@ export class StationsController {
     return this.stationsService.getStationById(id);
   }
 
+  @Public()
   @Get('mac/:macAddress')
   @ApiOperation({ summary: 'Get station by MAC address' })
   @ApiParam({
@@ -153,7 +159,7 @@ export class StationsController {
     @Body() updateStationDto: UpdateStationDto,
   ): Promise<StationDto> {
     // Add the station ID to the DTO for validation context
-    (updateStationDto as any).id = id;
+    (updateStationDto as UpdateStationDto & { id: string }).id = id;
     return this.stationsService.updateStation(id, updateStationDto);
   }
 
