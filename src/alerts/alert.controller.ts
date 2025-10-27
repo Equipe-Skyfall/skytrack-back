@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpStatus, Param, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, DefaultValuePipe, Delete, Get, HttpStatus, Param, ParseBoolPipe, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
 import { AlertsService } from "./alert.service";
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
@@ -34,6 +34,20 @@ export class AlertsControllers {
         description: 'Filter by alert level',
         example: 'warning',
     })
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String,
+        description: 'Filter by alert name',
+        example: 'alerta de chuva',
+    })
+    @ApiQuery({
+        name: 'is_active',
+        required: false,
+        type: Boolean,
+        description: 'Filter by active/inactive',
+        example: true,
+    })
     @ApiResponse({
         status: HttpStatus.OK,
         description: 'List of alerts',
@@ -43,11 +57,15 @@ export class AlertsControllers {
         @Query('page') page = 1,
         @Query('limit') limit = 10,
         @Query('level') level?: string,
+        @Query('search') search?: string,
+        @Query('is_active', new DefaultValuePipe(undefined), ParseBoolPipe) is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
         return this.alertsService.getAllAlerts(
             Number(page),
             Number(limit),
             level,
+            search,
+            is_active,
         )
     }
 
@@ -102,6 +120,20 @@ export class AlertsControllers {
         description: 'Filter by alert level',
         example: 'warning',
     })
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String,
+        description: 'Filter by alert name',
+        example: 'alerta de chuva',
+    })
+    @ApiQuery({
+        name: 'is_active',
+        required: false,
+        type: Boolean,
+        description: 'Filter by active/inactive',
+        example: true,
+    })
     @ApiResponse({
         status: HttpStatus.OK,
         description: 'List of alerts from MAC address',
@@ -116,8 +148,10 @@ export class AlertsControllers {
         @Query('page') page = 1,
         @Query('limit') limit = 10,
         @Query('level') level?: string,
+        @Query('search') search?: string,
+        @Query('is_active', new DefaultValuePipe(undefined), ParseBoolPipe) is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
-        return this.alertsService.getAlertsByMacAddress(page, limit, macAddress, level);
+        return this.alertsService.getAlertsByMacAddress(page, limit, macAddress, level, search, is_active,);
     }
 
     @Post()
