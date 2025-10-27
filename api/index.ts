@@ -6,69 +6,75 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
-let cachedApp: any = null;
-
 async function getApp() {
-  // 🔁 Force rebuild on cold start or when a new deployment happens
-  if (!cachedApp || process.env.NODE_ENV !== 'production') {
-    console.log('🚀 [VERCEL] Building a fresh NestJS app instance...');
+  console.log('🚀 [VERCEL] Building NestJS app instance...');
 
-    process.env.IS_SERVERLESS = 'true';
+  // Set environment variable to indicate serverless environment
+  process.env.IS_SERVERLESS = 'true';
 
-    const app = await NestFactory.create(AppModule, {
-      logger: ['error', 'warn', 'log'],
-    });
+  // Create NestJS app
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
 
-    app.use(cookieParser());
-    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+  // Cookie parser
+  console.log('🍪 [VERCEL] Configuring cookie parser...');
+  app.use(cookieParser());
 
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+  // class-validator DI
+  console.log('🔧 [VERCEL] Configuring class-validator...');
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-    const corsOrigins = process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-      : ['http://localhost:5173'];
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-    app.enableCors({
-      origin: corsOrigins,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      credentials: true,
-    });
+  // CORS
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173'];
 
-    app.setGlobalPrefix('api', { exclude: ['/'] });
+  app.enableCors({
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+  });
 
-    const config = new DocumentBuilder()
-      .setTitle('SkyTrack API')
-      .setDescription('A comprehensive backend API for SkyTrack application')
-      .setVersion('1.0.0')
-      .build();
+  // Global prefix
+  app.setGlobalPrefix('api', { exclude: ['/'] });
 
-    // 🧠 Rebuild Swagger docs every time app is (re)initialized
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('docs', app, document, {
-      customCssUrl:
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
-      customJs: [
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
-      ],
-      swaggerOptions: {
-        persistAuthorization: true,
-        cache: false, // 🚀 force Swagger to regenerate docs
-      },
-    });
+  // Swagger config
+  const config = new DocumentBuilder()
+    .setTitle('SkyTrack API')
+    .setDescription('A comprehensive backend API for SkyTrack application')
+    .setVersion('1.0.0')
+    .build();
 
-    await app.init();
-    cachedApp = app.getHttpAdapter().getInstance();
-  }
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document, {
+    customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
+    customJs: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
+    ],
+    swaggerOptions: {
+      persistAuthorization: true,
+      cache: false, // 🔑 force Swagger to regenerate every time
+    },
+  });
 
-  return cachedApp;
+  await app.init();
+
+  console.log('✅ [VERCEL] NestJS application initialized successfully');
+
+  // Return the adapter instance
+  return app.getHttpAdapter().getInstance();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
