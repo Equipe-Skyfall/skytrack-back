@@ -20,8 +20,10 @@ export class AlertsService {
         page: number,
         limit: number,
         level?: string,
+        search?: string,
+        is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
-        const result = await this.alertRepository.findAll({page, limit, level});
+        const result = await this.alertRepository.findAll({page, limit, level, search, is_active});
         const totalPages = Math.ceil(result.total/limit);
 
         return {
@@ -50,13 +52,15 @@ export class AlertsService {
         limit: number,
         macAddress: string,
         level?: string,
+        search?: string,
+        is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
         const validMAC = await this.stationRepository.existsByMAC(macAddress)
         if (!validMAC) {
             throw new NotFoundException(`Station with MAC ${macAddress} not found`);
         }
 
-        const result = await this.alertRepository.findByMacAddress({page, limit, level}, macAddress)
+        const result = await this.alertRepository.findByMacAddress({page, limit, level, search, is_active}, macAddress)
         const totalPages = Math.ceil(result.total/limit);
 
         return {
