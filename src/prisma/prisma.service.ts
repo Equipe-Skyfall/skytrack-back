@@ -4,31 +4,19 @@ import { PrismaClient } from '@prisma/client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
+    const isServerless = process.env.IS_SERVERLESS === 'true';
+
     super({
       datasources: {
         db: {
           url: process.env.DATABASE_URL,
         },
       },
-      log: process.env.IS_SERVERLESS === 'true'
+      // Reduce logging in serverless to minimize cold start time
+      log: isServerless
         ? ['error', 'warn']
         : ['error', 'warn', 'query'],
     });
-
-    // Configure connection pool for serverless
-    if (process.env.IS_SERVERLESS === 'true') {
-      this.$extends({
-        query: {
-          $allModels: {
-            async $allOperations({ operation: _operation, model: _model, args, query }) {
-              // Set statement timeout for serverless
-              const result = await query(args);
-              return result;
-            },
-          },
-        },
-      });
-    }
   }
 
   async onModuleInit() {
@@ -48,7 +36,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleDestroy() {
-    // In serverless, keep connections open for reuse
+    // In serverless, keep connections open for reuse across Lambda invocations
+    // The cached app instance in api/index.ts + pgBouncer pooler handle connection management
     if (process.env.IS_SERVERLESS !== 'true') {
       await this.$disconnect();
       console.log('🔌 Prisma disconnected');
