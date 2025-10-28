@@ -4,6 +4,7 @@ import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
+import { Public } from "../auth/public.decorator";
 
 @ApiTags('RegisteredAlerts')
 @ApiBearerAuth('JWT-auth')
@@ -11,6 +12,7 @@ import { CreateAlertDto } from "./dto/create-alert.dto";
 export class AlertsControllers {
     constructor(private readonly alertsService: AlertsService) {}
 
+    @Public()
     @Get()
     @ApiOperation({summary: 'Get all alerts'})
     @ApiQuery({
@@ -69,6 +71,7 @@ export class AlertsControllers {
         )
     }
 
+    @Public()
     @Get(':id')
     @ApiOperation({ summary: 'Get alert by ID' })
     @ApiParam({
@@ -92,6 +95,7 @@ export class AlertsControllers {
         return this.alertsService.getAlertById(id);
     }
 
+    @Public()
     @Get('mac/:macAddress')
     @ApiOperation({summary: 'Get all alerts from MAC address'})
     @ApiQuery({
