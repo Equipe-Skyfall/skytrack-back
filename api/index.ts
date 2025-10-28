@@ -6,7 +6,16 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
+// Cache the app instance for reuse across serverless invocations
+let cachedApp: any = null;
+
 async function getApp() {
+  // Return cached instance if available
+  if (cachedApp) {
+    console.log('♻️  [VERCEL] Reusing cached NestJS app instance');
+    return cachedApp;
+  }
+
   console.log('🚀 [VERCEL] Building NestJS app instance...');
 
   // Set environment variable to indicate serverless environment
@@ -73,8 +82,11 @@ async function getApp() {
 
   console.log('✅ [VERCEL] NestJS application initialized successfully');
 
-  // Return the adapter instance
-  return app.getHttpAdapter().getInstance();
+  // Get the adapter instance and cache it
+  const expressApp = app.getHttpAdapter().getInstance();
+  cachedApp = expressApp;
+
+  return expressApp;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
