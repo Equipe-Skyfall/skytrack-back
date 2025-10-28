@@ -4,7 +4,6 @@ import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { Prisma } from "@prisma/client";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
-import { UpdateAlertDto } from "./dto/update-alert.dto";
 import { IStationRepository, STATION_REPOSITORY_TOKEN } from "../stations/interfaces/station-repository.interface";
 
 @Injectable()
@@ -21,8 +20,10 @@ export class AlertsService {
         page: number,
         limit: number,
         level?: string,
+        search?: string,
+        is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
-        const result = await this.alertRepository.findAll({page, limit, level});
+        const result = await this.alertRepository.findAll({page, limit, level, search, is_active});
         const totalPages = Math.ceil(result.total/limit);
 
         return {
@@ -51,13 +52,15 @@ export class AlertsService {
         limit: number,
         macAddress: string,
         level?: string,
+        search?: string,
+        is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
         const validMAC = await this.stationRepository.existsByMAC(macAddress)
         if (!validMAC) {
             throw new NotFoundException(`Station with MAC ${macAddress} not found`);
         }
 
-        const result = await this.alertRepository.findByMacAddress({page, limit, level}, macAddress)
+        const result = await this.alertRepository.findByMacAddress({page, limit, level, search, is_active}, macAddress)
         const totalPages = Math.ceil(result.total/limit);
 
         return {
@@ -101,28 +104,18 @@ export class AlertsService {
         }
     }
 
-    async updateAlert(id: string, updateAlertDto: UpdateAlertDto): Promise<RegisteredAlertDto> {
+    async updateAlert(id: string): Promise<RegisteredAlertDto> {
         const exists = await this.alertRepository.exists(id);
         if (!exists) {
             throw new NotFoundException(`Alert with ID ${id} not found`);
         }
 
         try {
-            const alert = await this.alertRepository.update(id, updateAlertDto);
+            const alert = await this.alertRepository.update(id);
             return this.mapToAlertDto(alert);
         } catch (error: any) {
             if (error instanceof Prisma.PrismaClientKnownRequestError) {
-                const field = error.meta?.field_name as string | undefined;
-
                 switch (error.code) {
-                    case 'P2003':
-                        if (field?.includes('parameterId')) {
-                            throw new NotFoundException(
-                                `Parameter with ID ${updateAlertDto.parameterId} not found`,
-                            );
-                        }
-                        break;
-
                     case 'P2002':
                         throw new ConflictException(
                             `An alert for this station, parameter, and alert type already exists`,
@@ -150,6 +143,7 @@ export class AlertsService {
     private mapToAlertDto(alert: any): RegisteredAlertDto {
         return {
             id: alert.id,
+            alert_name: alert.tipoAlerta.tipo,
             data: alert.data,
             stationId: alert.stationId,
             parameterId: alert.parameterId,
