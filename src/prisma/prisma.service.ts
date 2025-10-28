@@ -20,7 +20,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.$extends({
         query: {
           $allModels: {
-            async $allOperations({ operation, model, args, query }) {
+            async $allOperations({ operation: _operation, model: _model, args, query }) {
               // Set statement timeout for serverless
               const result = await query(args);
               return result;
