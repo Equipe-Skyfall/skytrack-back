@@ -85,6 +85,7 @@ export class SensorReadingsService {
             tipoAlertaId: alert.tipoAlertaId,
             medidasId: alert.medidasId ?? undefined,
             createdAt: alert.createdAt,
+            active: alert.active,
         }
     }
 }

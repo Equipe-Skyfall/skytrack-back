@@ -49,4 +49,10 @@ export class RegisteredAlertDto {
     example: '2025-09-20T12:34:56.789Z',
   })
   createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Whether the alert is active or resolved',
+    example: true,
+  })
+  active!: boolean;
 }
