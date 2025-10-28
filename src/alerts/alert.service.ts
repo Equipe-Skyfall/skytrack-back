@@ -150,6 +150,7 @@ export class AlertsService {
             tipoAlertaId: alert.tipoAlertaId,
             medidasId: alert.medidasId ?? undefined,
             createdAt: alert.createdAt,
+            active: alert.active,
         }
     }
 }
