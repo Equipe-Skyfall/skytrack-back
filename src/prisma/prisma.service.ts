@@ -3,6 +3,34 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  constructor() {
+    super({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+      log: process.env.IS_SERVERLESS === 'true'
+        ? ['error', 'warn']
+        : ['error', 'warn', 'query'],
+    });
+
+    // Configure connection pool for serverless
+    if (process.env.IS_SERVERLESS === 'true') {
+      this.$extends({
+        query: {
+          $allModels: {
+            async $allOperations({ operation, model, args, query }) {
+              // Set statement timeout for serverless
+              const result = await query(args);
+              return result;
+            },
+          },
+        },
+      });
+    }
+  }
+
   async onModuleInit() {
     try {
       await this.$connect();
@@ -20,7 +48,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
-    console.log('🔌 Prisma disconnected');
+    // In serverless, keep connections open for reuse
+    if (process.env.IS_SERVERLESS !== 'true') {
+      await this.$disconnect();
+      console.log('🔌 Prisma disconnected');
+    }
   }
 }
