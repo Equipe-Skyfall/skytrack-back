@@ -91,11 +91,6 @@ export class AlertsService {
                             `Parameter with ID ${createAlertDto.parameterId} not found`,
                         );
 
-                    case 'P2002':
-                        throw new ConflictException(
-                            `An alert for this station, parameter, and alert type already exists`,
-                        );
-
                     default:
                         throw new BadRequestException(`Failed to create alert: ${error.message}`);
                 }

@@ -1,323 +1,361 @@
 # SkyTrack Backend API
 
-A comprehensive backend API for meteorological station management built with Node.js, TypeScript, Express, and PostgreSQL.
+API backend completa para gerenciamento de estações meteorológicas, construída com Node.js, TypeScript, NestJS, PostgreSQL e MongoDB.
 
+## Requisitos
 
-## Requirements
+- Node.js (v16 ou superior)
+- PostgreSQL (v12 ou superior) OU Docker
+- MongoDB (para dados dos sensores ESP32)
+- npm ou yarn
 
-- Node.js (v16 or higher)
-- PostgreSQL (v12 or higher) OR Docker
-- npm or yarn
+## Como Executar Localmente
 
-## Installation
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Update the `.env` file with your database credentials.
-
-4. Set up PostgreSQL (choose one option):
-
-   **Option A: Supabase (Recommended)**
-   1. Create a Supabase project at [supabase.com](https://supabase.com)
-   2. Get your database URL from Settings > Database
-   3. Update your `.env` file with the Supabase connection string:
-   ```bash
-   DATABASE_URL="postgresql://postgres:your_password@db.your_project_ref.supabase.co:5432/postgres"
-   ```
-
-   **Option B: Local PostgreSQL Installation**
-   ```sql
-   CREATE DATABASE skytrack;
-   ```
-
-   **Option C: Docker Container**
-   ```bash
-   # Run PostgreSQL in Docker
-   docker run --name skytrack-postgres -e POSTGRES_PASSWORD=your_password -p 5432:5432 -d postgres
-
-   # Create the database
-   docker exec skytrack-postgres psql -U postgres -c "CREATE DATABASE skytrack;"
-   ```
-
-## Available NPM Commands
-
-### Development Commands
+### 1. Clone o repositório
 
 ```bash
-# Start the development server with hot reload
+git clone <url-do-repositório>
+cd SkyTrack
+```
+
+### 2. Instale as dependências
+
+```bash
+npm install
+```
+
+### 3. Configure as variáveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Atualize o arquivo `.env` com suas credenciais do banco de dados.
+
+### 4. Configure o PostgreSQL (escolha uma opção)
+
+**Opção A: Instalação Local do PostgreSQL**
+```sql
+CREATE DATABASE skytrack;
+```
+
+**Opção B: Container Docker**
+```bash
+# Execute o PostgreSQL no Docker
+docker run --name skytrack-postgres -e POSTGRES_PASSWORD=sua_senha -p 5432:5432 -d postgres
+
+# Crie o banco de dados
+docker exec skytrack-postgres psql -U postgres -c "CREATE DATABASE skytrack;"
+```
+
+**Opção C: Supabase (Recomendado)**
+1. Crie um projeto no [supabase.com](https://supabase.com)
+2. Obtenha a URL do banco de dados em Settings > Database
+3. Atualize seu arquivo `.env` com as strings de conexão do Supabase:
+```bash
+# Para ambientes serverless (Vercel, Lambda)
+DATABASE_URL="postgresql://postgres.SEU_PROJECT_ID:SUA_SENHA@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+
+# Para desenvolvimento local
+DIRECT_DATABASE_URL="postgresql://postgres:SUA_SENHA@db.SEU_PROJECT_ID.supabase.co:5432/postgres"
+```
+
+### 5. Configure o MongoDB (dados dos sensores ESP32)
+
+O MongoDB é usado para armazenar dados brutos dos sensores ESP32, que são posteriormente migrados para o PostgreSQL.
+
+**Opção A: MongoDB Atlas (Recomendado)**
+1. Crie uma conta gratuita no [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Crie um cluster
+3. Obtenha a string de conexão
+4. Atualize seu arquivo `.env`:
+```bash
+MONGO_CONNECTION_STRING="mongodb+srv://SEU_USER:SUA_SENHA@SEU_CLUSTER.mongodb.net/?retryWrites=true&w=majority"
+MONGO_DATABASE="dadosClima"
+MONGO_COLLECTION="clima"
+```
+
+**Opção B: MongoDB Local**
+```bash
+# Instale o MongoDB localmente ou use Docker
+docker run --name skytrack-mongo -p 27017:27017 -d mongo
+
+# Atualize o .env
+MONGO_CONNECTION_STRING="mongodb://localhost:27017"
+MONGO_DATABASE="dadosClima"
+MONGO_COLLECTION="clima"
+```
+
+### 6. Configure a migração de dados (Opcional)
+
+O sistema pode migrar automaticamente dados do MongoDB para o PostgreSQL:
+
+```bash
+# No arquivo .env, configure:
+MIGRATION_ENABLED="true"                    # Habilita migração automática
+MIGRATION_INTERVAL_MINUTES="15"            # Executa a cada 15 minutos
+MIGRATION_BATCH_SIZE="100"                 # Processa 100 registros por vez
+MIGRATION_SYNC_NAME="main_sync"            # Nome da sincronização
+```
+
+### 7. Configure o banco de dados com Prisma
+
+```bash
+# Gere o cliente Prisma
+npx prisma generate
+
+# Execute as migrações
+npx prisma migrate dev
+```
+
+### 8. Inicie o servidor de desenvolvimento
+
+```bash
+npm run dev
+```
+
+A API estará disponível em `http://localhost:3000`
+
+## Comandos Disponíveis
+
+### Comandos de Desenvolvimento
+
+```bash
+# Iniciar o servidor de desenvolvimento com hot reload
 npm run dev
 
-# Start the production server
+# Iniciar o servidor de produção
 npm start
 
-# Build the TypeScript project
+# Compilar o projeto TypeScript
 npm run build
 ```
 
-### Testing Commands
+### Comandos de Teste
 
 ```bash
-# Run all tests
+# Executar todos os testes
 npm test
 
-# Run tests in watch mode
+# Executar testes em modo watch
 npm run test:watch
 
-# Run tests with coverage report
+# Executar testes com relatório de cobertura
 npm run test:coverage
 ```
 
-### Code Quality Commands
+### Comandos de Qualidade de Código
 
 ```bash
-# Run ESLint to check for code issues
+# Executar ESLint para verificar problemas no código
 npm run lint
 
-# Run ESLint and automatically fix issues
+# Executar ESLint e corrigir problemas automaticamente
 npm run lint:fix
 
-# Format code with Prettier
+# Formatar código com Prettier
 npm run format
 ```
 
-## Database Setup
-
-This project uses Prisma ORM for database management. After setting up PostgreSQL (see Installation section), follow these steps:
-
-1. **Generate Prisma Client**:
-   ```bash
-   npx prisma generate
-   ```
-
-2. **Run database migrations**:
-   ```bash
-   npx prisma migrate dev --name init
-   ```
-
-3. **Seed the database (optional)**:
-   ```bash
-   npx prisma db seed
-   ```
-
-### Prisma Commands
+### Comandos do Prisma
 
 ```bash
-# Generate Prisma Client after schema changes
+# Gerar cliente Prisma após mudanças no schema
 npx prisma generate
 
-# Create and apply a new migration
-npx prisma migrate dev --name migration_name
+# Criar e aplicar uma nova migration
+npx prisma migrate dev --name nome_da_migration
 
-# Apply migrations in production
+# Aplicar migrations em produção
 npx prisma migrate deploy
 
-# Reset the database (development only)
+# Resetar o banco de dados (apenas desenvolvimento)
 npx prisma migrate reset
 
-# Open Prisma Studio for database inspection
+# Abrir Prisma Studio para inspeção do banco de dados
 npx prisma studio
 
-# Push schema changes without migrations (development)
+# Enviar mudanças do schema sem migrations (desenvolvimento)
 npx prisma db push
 ```
 
-### Environment Variables
+## Variáveis de Ambiente
 
 ```env
+# Configuração do Servidor
 PORT=3000
 NODE_ENV=development
+IS_SERVERLESS=false  # true para Vercel/Lambda, false para local/EC2
 
-# Database Configuration (Prisma)
-# For Supabase: postgresql://postgres:your_password@db.your_project_ref.supabase.co:5432/postgres
-# For local PostgreSQL: postgresql://postgres:password@localhost:5432/skytrack
-# For Docker container: postgresql://postgres:your_password@localhost:5432/skytrack
-DATABASE_URL="postgresql://postgres:your_password@db.your_project_ref.supabase.co:5432/postgres"
+# PostgreSQL (Supabase) - Dados da aplicação
+DATABASE_URL="postgresql://postgres.SEU_PROJECT_ID:SUA_SENHA@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_DATABASE_URL="postgresql://postgres:SUA_SENHA@db.SEU_PROJECT_ID.supabase.co:5432/postgres"
 
-# Legacy Database Configuration (for reference)
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=skytrack
-DB_USER=postgres
-DB_PASSWORD=password
-DB_MAX_CONNECTIONS=10
-DB_IDLE_TIMEOUT=30000
-DB_CONNECTION_TIMEOUT=2000
+# MongoDB - Dados dos sensores ESP32
+MONGO_CONNECTION_STRING="mongodb+srv://SEU_USER:SUA_SENHA@SEU_CLUSTER.mongodb.net/?retryWrites=true&w=majority"
+MONGO_DATABASE="dadosClima"
+MONGO_COLLECTION="clima"
+
+# Migração MongoDB → PostgreSQL
+MIGRATION_ENABLED="true"
+MIGRATION_INTERVAL_MINUTES="15"
+MIGRATION_BATCH_SIZE="100"
+MIGRATION_SYNC_NAME="main_sync"
+
+# CORS
+CORS_ORIGINS="http://localhost:5173,http://localhost:3000,https://app.skytrack.space"
 ```
 
-## Supabase Integration
+## Documentação da API
 
-This project is now integrated with Supabase for managed PostgreSQL hosting. Benefits include:
+Com o servidor em execução, você pode acessar a documentação interativa da API em:
+- **Swagger UI**: `http://localhost:3000/docs`
 
-- ✅ **Managed Database**: No need to maintain your own PostgreSQL instance
-- ✅ **Automatic Backups**: Built-in backup and restore functionality
-- ✅ **Real-time Features**: Optional real-time subscriptions for data changes
-- ✅ **Dashboard**: Web-based database management interface
-- ✅ **Scalability**: Automatic scaling based on usage
+## Endpoints da API
 
-### Supabase Setup Steps
+### Estações Meteorológicas
 
-1. **Create a Supabase Project**
-   - Visit [supabase.com](https://supabase.com) and create a new project
-   - Choose your organization and project name
+- `GET /api/stations` - Listar todas as estações com filtros e paginação opcionais
+- `GET /api/stations/:id` - Obter uma estação específica por ID
+- `POST /api/stations` - Criar uma nova estação
+- `PUT /api/stations/:id` - Atualizar uma estação existente
+- `DELETE /api/stations/:id` - Deletar uma estação
 
-2. **Get Database Connection Details**
-   - Go to Settings → Database in your Supabase dashboard
-   - Copy the connection string under "Connection Pooling"
+### Alertas
 
-3. **Configure Your Application**
-   - Update your `.env` file with the Supabase connection string
-   - Run `npx prisma db push` to deploy your schema
-   - Start your application with `npm run dev`
+- `GET /api/alerts` - Obter todos os alertas (público, paginado, filtrável por nível, busca, is_active)
+- `GET /api/alerts/:id` - Obter alerta por ID (público)
+- `GET /api/alerts/mac/:macAddress` - Obter alertas de uma estação específica (público)
+- `POST /api/alerts` - Criar novo alerta (requer autenticação)
+- `PUT /api/alerts/:id` - Atualizar alerta (alterna status ativo/inativo)
+- `DELETE /api/alerts/:id` - Deletar alerta
 
-4. **Optional: Enable Additional Features**
-   - **Row Level Security**: Enable RLS for enhanced security
-   - **Real-time**: Subscribe to database changes in real-time
-   - **Auth**: Integrate Supabase Authentication for user management
+**Nota sobre Alertas**: O sistema permite criar **múltiplos alertas para a mesma estação**, inclusive com os mesmos parâmetros e tipos de alerta. Não há restrições de unicidade.
 
-## API Documentation
+### Parâmetros
 
-Once the server is running, you can access the interactive API documentation at:
-- **Swagger UI**: `http://localhost:3000/api-docs`
+- `GET /api/parameters` - Listar todos os parâmetros
+- `GET /api/parameters/:id` - Obter um parâmetro específico
 
-## API Endpoints
+### Leituras de Sensores
 
-### Meteorological Stations
+- `GET /api/sensor-readings` - Obter leituras dos sensores
+- `POST /api/sensor-readings` - Registrar nova leitura
 
-- `GET /api/v1/stations` - List all stations with optional filtering and pagination
-- `GET /api/v1/stations/:id` - Get a specific station by ID
-- `POST /api/v1/stations` - Create a new station
-- `PUT /api/v1/stations/:id` - Update an existing station
-- `DELETE /api/v1/stations/:id` - Delete a station
+### Tipos de Alerta
+
+- `GET /api/tipo-alerta` - Listar tipos de alertas disponíveis
+- `GET /api/tipo-alerta/:id` - Obter tipo de alerta específico
+- `POST /api/tipo-alerta` - Criar novo tipo de alerta
+- `PUT /api/tipo-alerta/:id` - Atualizar tipo de alerta
+- `DELETE /api/tipo-alerta/:id` - Deletar tipo de alerta
+
+### Tipos de Parâmetro
+
+- `GET /api/tipo-parametro` - Listar tipos de parâmetros
+- `GET /api/tipo-parametro/:id` - Obter tipo de parâmetro específico
+
+### Migração (MongoDB → PostgreSQL)
+
+- `GET /api/migration/status` - Verificar status da migração
+- `POST /api/migration/run` - Executar migração manualmente
 
 ### Health Check
 
-- `GET /api/v1/health` - Check API health status
+- `GET /api/health` - Verificar status de saúde da API
 
-## Station Data Model
+## Modelo de Dados
+
+### Estação
 
 ```typescript
 interface Station {
   id: string;          // UUID
-  name: string;        // 1-100 characters
-  latitude: number;    // -90 to 90
-  longitude: number;   // -180 to 180
-  description?: string; // Optional, max 500 characters
-  status: 'ACTIVE' | 'INACTIVE'; // Defaults to ACTIVE
+  name: string;        // 1-100 caracteres
+  latitude: number;    // -90 a 90
+  longitude: number;   // -180 a 180
+  description?: string; // Opcional, máx 500 caracteres
+  status: 'ACTIVE' | 'INACTIVE'; // Padrão: ACTIVE
   createdAt: Date;
   updatedAt: Date;
 }
 ```
 
-## Development Workflow
+### Alerta
 
-1. **Start development server**:
+```typescript
+interface RegisteredAlert {
+  id: string;           // UUID
+  stationId: string;    // MAC address da estação
+  parameterId: string;  // ID do parâmetro monitorado
+  tipoAlertaId: string; // ID do tipo de alerta
+  medidasId?: string;   // ID da leitura que acionou o alerta (opcional)
+  active: boolean;      // Status do alerta (ativo/inativo)
+  data: Date;           // Data do alerta
+  createdAt: Date;      // Data de criação
+}
+```
+
+## Fluxo de Desenvolvimento
+
+1. **Inicie o servidor de desenvolvimento**:
    ```bash
    npm run dev
    ```
 
-2. **Make your changes** and the server will automatically reload
+2. **Faça suas alterações** e o servidor recarregará automaticamente
 
-3. **Run tests** to ensure everything works:
+3. **Execute os testes** para garantir que tudo funciona:
    ```bash
    npm test
    ```
 
-4. **Check code quality**:
+4. **Verifique a qualidade do código**:
    ```bash
    npm run lint
    npm run format
    ```
 
-5. **Build for production**:
+5. **Compile para produção**:
    ```bash
    npm run build
    ```
 
-## Project Structure
+## Estrutura do Projeto
 
 ```
 prisma/
-├── migrations/       # Database migration files
-└── schema.prisma     # Database schema definition
+├── migrations/       # Arquivos de migração do banco de dados
+└── schema.prisma     # Definição do schema do banco de dados
 
 src/
-├── config/           # Configuration files (database, swagger, prisma)
-├── controllers/      # HTTP request handlers
-├── factories/        # Entity factories
-├── middleware/       # Express middleware (validation, error handling)
-├── repositories/     # Data access layer (using Prisma)
-├── routes/           # Route definitions
-├── services/         # Business logic layer
-├── types/            # TypeScript interfaces and types
-├── container/        # Dependency injection container
-└── server.ts         # Application entry point
+├── alerts/           # Módulo de alertas
+├── config/           # Arquivos de configuração (database, swagger, prisma)
+├── controllers/      # Handlers de requisições HTTP
+├── factories/        # Factories de entidades
+├── middleware/       # Middleware Express (validação, tratamento de erros)
+├── repositories/     # Camada de acesso a dados (usando Prisma)
+├── routes/           # Definições de rotas
+├── services/         # Camada de lógica de negócio
+├── types/            # Interfaces e tipos TypeScript
+├── container/        # Container de injeção de dependências
+└── server.ts         # Ponto de entrada da aplicação
 
 tests/
-└── unit/            # Unit tests
+└── unit/            # Testes unitários
 ```
 
-## Architecture Principles
+## Princípios de Arquitetura
 
-This project follows clean architecture principles:
+Este projeto segue os princípios de arquitetura limpa:
 
-- **SOLID Principles**: Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
-- **Repository Pattern**: Abstracts data access logic
-- **Factory Pattern**: Creates entity instances
-- **Dependency Injection**: Manages dependencies and enables testing
-- **Service Layer**: Contains business logic
-- **Validation Layer**: Ensures data integrity
+- **Princípios SOLID**: Responsabilidade única, aberto/fechado, substituição de Liskov, segregação de interface, inversão de dependência
+- **Padrão Repository**: Abstrai a lógica de acesso a dados
+- **Padrão Factory**: Cria instâncias de entidades
+- **Injeção de Dependências**: Gerencia dependências e possibilita testes
+- **Camada de Serviço**: Contém a lógica de negócio
+- **Camada de Validação**: Garante a integridade dos dados
 
-## Deployment
-
-### Azure Web App Deployment
-
-This project is configured for deployment to Azure Web App with the following setup:
-
-1. **Azure Web App Setup**:
-   - Create a new Web App in Azure Portal
-   - Choose Node.js runtime (18.x LTS)
-   - Configure environment variables in Azure Portal
-
-2. **GitHub Actions Deployment**:
-   - The project includes `.github/workflows/azure-deploy.yml` for automated deployment
-   - Add your Azure Web App publish profile as a secret named `AZURE_WEBAPP_PUBLISH_PROFILE`
-   - Push to `main` branch to trigger deployment
-
-3. **Manual Deployment**:
-   ```bash
-   # Build the project
-   npm run build
-
-   # Deploy using Azure CLI
-   az webapp up --sku F1 --name your-app-name --location "East US"
-   ```
-
-4. **Environment Variables for Azure**:
-   Configure these in Azure Portal → Configuration → Application Settings:
-   ```
-   DATABASE_URL=your_production_database_url
-   NODE_ENV=production
-   PORT=80
-   ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `npm test`
-5. Run linter: `npm run lint`
-6. Build project: `npm run build`
-7. Submit a pull request
-
-## License
+## Licença
 
 MIT
