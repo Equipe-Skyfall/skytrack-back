@@ -1,10 +1,10 @@
-import { Body, Controller, Delete, Get, HttpStatus, Param, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, DefaultValuePipe, Delete, Get, HttpStatus, Param, ParseBoolPipe, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
 import { AlertsService } from "./alert.service";
 import { RegisteredAlertsListDto } from "./dto/alerts-list.dto";
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { RegisteredAlertDto } from "./dto/alert.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
-import { UpdateAlertDto } from "./dto/update-alert.dto";
+import { Public } from "../auth/public.decorator";
 
 @ApiTags('RegisteredAlerts')
 @ApiBearerAuth('JWT-auth')
@@ -12,6 +12,7 @@ import { UpdateAlertDto } from "./dto/update-alert.dto";
 export class AlertsControllers {
     constructor(private readonly alertsService: AlertsService) {}
 
+    @Public()
     @Get()
     @ApiOperation({summary: 'Get all alerts'})
     @ApiQuery({
@@ -35,6 +36,20 @@ export class AlertsControllers {
         description: 'Filter by alert level',
         example: 'warning',
     })
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String,
+        description: 'Filter by alert name',
+        example: 'alerta de chuva',
+    })
+    @ApiQuery({
+        name: 'is_active',
+        required: false,
+        type: Boolean,
+        description: 'Filter by active/inactive',
+        example: true,
+    })
     @ApiResponse({
         status: HttpStatus.OK,
         description: 'List of alerts',
@@ -44,14 +59,19 @@ export class AlertsControllers {
         @Query('page') page = 1,
         @Query('limit') limit = 10,
         @Query('level') level?: string,
+        @Query('search') search?: string,
+        @Query('is_active', new DefaultValuePipe(undefined), ParseBoolPipe) is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
         return this.alertsService.getAllAlerts(
             Number(page),
             Number(limit),
             level,
+            search,
+            is_active,
         )
     }
 
+    @Public()
     @Get(':id')
     @ApiOperation({ summary: 'Get alert by ID' })
     @ApiParam({
@@ -75,6 +95,7 @@ export class AlertsControllers {
         return this.alertsService.getAlertById(id);
     }
 
+    @Public()
     @Get('mac/:macAddress')
     @ApiOperation({summary: 'Get all alerts from MAC address'})
     @ApiQuery({
@@ -103,6 +124,20 @@ export class AlertsControllers {
         description: 'Filter by alert level',
         example: 'warning',
     })
+    @ApiQuery({
+        name: 'search',
+        required: false,
+        type: String,
+        description: 'Filter by alert name',
+        example: 'alerta de chuva',
+    })
+    @ApiQuery({
+        name: 'is_active',
+        required: false,
+        type: Boolean,
+        description: 'Filter by active/inactive',
+        example: true,
+    })
     @ApiResponse({
         status: HttpStatus.OK,
         description: 'List of alerts from MAC address',
@@ -117,8 +152,10 @@ export class AlertsControllers {
         @Query('page') page = 1,
         @Query('limit') limit = 10,
         @Query('level') level?: string,
+        @Query('search') search?: string,
+        @Query('is_active', new DefaultValuePipe(undefined), ParseBoolPipe) is_active?: boolean,
     ): Promise<RegisteredAlertsListDto> {
-        return this.alertsService.getAlertsByMacAddress(page, limit, macAddress, level);
+        return this.alertsService.getAlertsByMacAddress(page, limit, macAddress, level, search, is_active,);
     }
 
     @Post()
@@ -163,10 +200,8 @@ export class AlertsControllers {
     })
     async updateAlert(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() updateAlertDto: UpdateAlertDto,
     ): Promise<RegisteredAlertDto> {
-        (updateAlertDto as any).id = id;
-        return this.alertsService.updateAlert(id, updateAlertDto)
+        return this.alertsService.updateAlert(id)
     }
 
     @Delete(':id')

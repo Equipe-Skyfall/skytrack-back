@@ -6,83 +6,87 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 
-let cachedApp: unknown = null;
+// Cache the app instance for reuse across serverless invocations
+let cachedApp: any = null;
 
 async function getApp() {
-  if (!cachedApp) {
-    console.log('🚀 [VERCEL] Starting Vercel serverless function...');
+  // Return cached instance if available
+  if (cachedApp) {
+    console.log('♻️  [VERCEL] Reusing cached NestJS app instance');
+    return cachedApp;
+  }
 
-    // Set environment variable to indicate serverless environment
-    process.env.IS_SERVERLESS = 'true';
+  console.log('🚀 [VERCEL] Building NestJS app instance...');
 
-    // Create NestJS app without custom Express adapter
-    const app = await NestFactory.create(AppModule, {
-      logger: ['error', 'warn', 'log'],
-    });
+  // Set environment variable to indicate serverless environment
+  process.env.IS_SERVERLESS = 'true';
 
-    // Configure cookie parser
-    console.log('🍪 [VERCEL] Configuring cookie parser...');
-    app.use(cookieParser());
+  // Create NestJS app
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
 
-    // Configure class-validator to use NestJS dependency injection
-    console.log('🔧 [VERCEL] Configuring class-validator...');
-    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+  // Cookie parser
+  console.log('🍪 [VERCEL] Configuring cookie parser...');
+  app.use(cookieParser());
 
-    // Global authentication guard is now registered via APP_GUARD in AuthModule
-    console.log('🛡️ [VERCEL] Global auth guard registered via APP_GUARD provider');
+  // class-validator DI
+  console.log('🔧 [VERCEL] Configuring class-validator...');
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-    // Global validation pipe
-    app.useGlobalPipes(new ValidationPipe({
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    }));
+    }),
+  );
 
-    // CORS configuration
-    console.log('🌐 [VERCEL] Configuring CORS with credentials enabled...');
-    const corsOrigins = process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-      : ['http://localhost:5173']; // fallback for development
+  // CORS
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173'];
 
-    console.log('🌐 [VERCEL] CORS origins:', corsOrigins);
-    app.enableCors({
-      origin: corsOrigins,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      credentials: true,
-    });
+  app.enableCors({
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+  });
 
-    // Global prefix for API routes (excluding root route)
-    app.setGlobalPrefix('api', {
-      exclude: ['/'],
-    });
+  // Global prefix
+  app.setGlobalPrefix('api', { exclude: ['/'] });
 
-    // Swagger configuration (after global prefix so it reflects the correct paths)
-    const config = new DocumentBuilder()
-      .setTitle('SkyTrack API')
-      .setDescription('A comprehensive backend API for SkyTrack application')
-      .setVersion('1.0.0')
-      .build();
+  // Swagger config
+  const config = new DocumentBuilder()
+    .setTitle('SkyTrack API')
+    .setDescription('A comprehensive backend API for SkyTrack application')
+    .setVersion('1.0.0')
+    .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('docs', app, document, {
-      customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
-      customJs: [
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
-      ],
-      swaggerOptions: {
-        persistAuthorization: true,
-      },
-    });
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document, {
+    customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
+    customJs: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
+    ],
+    swaggerOptions: {
+      persistAuthorization: true,
+      cache: false, // 🔑 force Swagger to regenerate every time
+    },
+  });
 
-    await app.init();
-    console.log('✅ [VERCEL] NestJS application initialized successfully');
-    console.log('🛡️ [VERCEL] Authentication guard is active and protecting all routes');
+  await app.init();
 
-    cachedApp = app.getHttpAdapter().getInstance();
-  }
-  return cachedApp;
+  console.log('✅ [VERCEL] NestJS application initialized successfully');
+
+  // Get the adapter instance and cache it
+  const expressApp = app.getHttpAdapter().getInstance();
+  cachedApp = expressApp;
+
+  return expressApp;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -8,6 +8,12 @@ export class RegisteredAlertDto {
   id!: string;
 
   @ApiProperty({
+    description: 'Name given based on alert-type',
+    example: 'Alerta de Chuva',
+  })
+  alert_name!: string;
+
+  @ApiProperty({
     description: 'Alert date/timestamp',
     example: '2025-09-20T12:34:56.789Z',
   })
@@ -43,4 +49,10 @@ export class RegisteredAlertDto {
     example: '2025-09-20T12:34:56.789Z',
   })
   createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Whether the alert is active or resolved',
+    example: true,
+  })
+  active!: boolean;
 }
