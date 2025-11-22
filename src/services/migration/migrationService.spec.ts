@@ -26,11 +26,16 @@ describe('MigrationService', () => {
     address: 'Test Address'
   };
 
+  // Primary "good" mock parameter (matches Prisma schema)
   const mockParameter: any = {
     id: '550e8400-e29b-41d4-a716-446655440001',
-    stationId: '550e8400-e29b-41d4-a716-446655440000', // PostgreSQL station ID, not MAC address
+    stationId: mockStation.id,
     tipoParametroId: '550e8400-e29b-41d4-a716-446655440002',
-    alertaId: null,
+
+    // Prisma fields that must exist (even if null)
+    tipoAlertaId: null,
+    tipoAlerta: null,
+
     tipoParametro: {
       id: '550e8400-e29b-41d4-a716-446655440002',
       jsonId: 'temperature_sensor',
@@ -39,7 +44,11 @@ describe('MigrationService', () => {
       leitura: { temperatura: { offset: 0, factor: 1.0 } },
       polinomio: 'a0 + a1*temperatura',
       coeficiente: [1.0, 0.95]
-    }
+    },
+
+    // relation arrays must exist
+    alerts: [],
+    readings: []
   };
 
   const mockMongoData: MongoSensorData = {
@@ -72,6 +81,9 @@ describe('MigrationService', () => {
       },
       parameter: {
         findMany: jest.fn(),
+      },
+      tipoAlerta: {
+        findUnique: jest.fn()
       },
       sensorReading: {
         create: jest.fn(),
@@ -140,12 +152,15 @@ describe('MigrationService', () => {
     it('should handle invalid polynomial gracefully', async () => {
       // Setup mock parameter with user's exact problematic configuration
       const invalidPolynomialParameter = {
-        id: '550e8400-e29b-41d4-a716-446655440001',
-        stationId: '550e8400-e29b-41d4-a716-446655440000',
-        tipoParametroId: '550e8400-e29b-41d4-a716-446655440002',
-        alertaId: null,
+        id: '550e8400-e29b-41d4-a716-446655440010',
+        stationId: mockStation.id,
+        tipoParametroId: '550e8400-e29b-41d4-a716-446655440011',
+
+        tipoAlertaId: null,
+        tipoAlerta: null,
+
         tipoParametro: {
-          id: '550e8400-e29b-41d4-a716-446655440002',
+          id: '550e8400-e29b-41d4-a716-446655440011',
           jsonId: 'temperature_sensor',
           nome: 'temperatura',
           metrica: '°C',
@@ -153,9 +168,12 @@ describe('MigrationService', () => {
             temperatura: { offset: 0, factor: 1.0 },
             umidade: { offset: 0, factor: 1.0 }
           },
-          polinomio: 'a0 + a1*temperatura+umidade',  // Invalid: 3 terms, only 2 coefficients
-          coeficiente: [1.0, 0.95]  // Missing coefficient for umidade term
-        }
+          polinomio: 'a0 + a1*temperatura+umidade', // malformed for provided coefficients
+          coeficiente: [1.0, 0.95]
+        },
+
+        alerts: [],
+        readings: []
       };
 
       // Setup
@@ -191,14 +209,17 @@ describe('MigrationService', () => {
     });
 
     it('should migrate data successfully with multi-sensor parameter', async () => {
-      // Setup mock parameter with multi-sensor configuration like user's
+      // Setup mock parameter with multi-sensor configuration
       const multiSensorParameter = {
-        id: '550e8400-e29b-41d4-a716-446655440001',
-        stationId: '550e8400-e29b-41d4-a716-446655440000',
-        tipoParametroId: '550e8400-e29b-41d4-a716-446655440002',
-        alertaId: null,
+        id: '550e8400-e29b-41d4-a716-446655440020',
+        stationId: mockStation.id,
+        tipoParametroId: '550e8400-e29b-41d4-a716-446655440021',
+
+        tipoAlertaId: null,
+        tipoAlerta: null,
+
         tipoParametro: {
-          id: '550e8400-e29b-41d4-a716-446655440002',
+          id: '550e8400-e29b-41d4-a716-446655440021',
           jsonId: 'multi_sensor',
           nome: 'temperatura',
           metrica: '°C',
@@ -208,7 +229,10 @@ describe('MigrationService', () => {
           },
           polinomio: 'a0 + a1*temperatura + a2*umidade',
           coeficiente: [1.0, 0.95, 1.0]
-        }
+        },
+
+        alerts: [],
+        readings: []
       };
 
       // Setup
@@ -230,8 +254,8 @@ describe('MigrationService', () => {
         timestamp: new Date(mockMongoData.unixtime * 1000),
         mongoId: mockMongoData._id,
         valor: {
-          umidade: 60.0,      // raw MongoDB data (no processing for umidade)
-          temperatura: expect.any(Number)  // processed parameter value (overwrites raw 25.5)
+          umidade: 60.0,
+          temperatura: expect.any(Number)
         },
         macEstacao: mockMongoData.uuid,
         uuidEstacao: mockStation.id,
@@ -240,8 +264,6 @@ describe('MigrationService', () => {
       };
       prisma.sensorReading.create.mockResolvedValue(mockCreatedReading);
       prisma.sensorReadingParameter.createMany.mockResolvedValue({ count: 1 });
-
-      // Mock timestamp update
       prisma.migrationState.upsert.mockResolvedValue(mockMigrationState);
 
       const result = await service.migrate();
@@ -255,8 +277,8 @@ describe('MigrationService', () => {
           timestamp: new Date(mockMongoData.unixtime * 1000),
           mongoId: mockMongoData._id,
           valor: {
-            umidade: 60.0,      // raw MongoDB data (no processing)
-            temperatura: expect.any(Number)  // processed parameter value (overwrites raw 25.5)
+            umidade: 60.0,
+            temperatura: expect.any(Number)
           },
           macEstacao: mockMongoData.uuid,
           uuidEstacao: mockStation.id,
@@ -291,8 +313,6 @@ describe('MigrationService', () => {
       };
       prisma.sensorReading.create.mockResolvedValue(mockCreatedReading);
       prisma.sensorReadingParameter.createMany.mockResolvedValue({ count: 1 });
-
-      // Mock timestamp update
       prisma.migrationState.upsert.mockResolvedValue(mockMigrationState);
 
       // Execute
@@ -310,9 +330,9 @@ describe('MigrationService', () => {
           timestamp: new Date(mockMongoData.unixtime * 1000),
           mongoId: mockMongoData._id,
           valor: {
-            temperatura: 25.5,  // raw MongoDB data
-            umidade: 60.0,      // raw MongoDB data
-            temperature: expect.any(Number)  // processed parameter value
+            temperatura: 25.5,
+            umidade: 60.0,
+            temperature: expect.any(Number)
           },
           macEstacao: mockMongoData.uuid,
           uuidEstacao: mockStation.id,
@@ -414,7 +434,8 @@ describe('MigrationService', () => {
       expect(prisma.parameter.findMany).toHaveBeenCalledWith({
         where: { stationId: mockStation.id },
         include: {
-          tipoParametro: true
+          tipoParametro: true,
+          tipoAlerta: true
         }
       });
     });
