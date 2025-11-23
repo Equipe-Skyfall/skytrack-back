@@ -1,0 +1,36 @@
+name: Integration Tests (Test Branch)
+
+on:
+  pull_request:
+    branches: [ "test" ]
+  push:
+    branches: [ "test" ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Backend: Rodar testes de integração com PostgreSQL real
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Setup Prisma
+        env:
+          DATABASE_URL: postgresql://postgres:123456789Skytrack!@db.autuucgxzwdmnjxbvyfw.supabase.co:5432/postgres
+        run: npx prisma generate
+
+      - name: Run backend integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:123456789Skytrack!@db.autuucgxzwdmnjxbvyfw.supabase.co:5432/postgres
+          NODE_ENV: test
+          PORT: 3000
+        run: npm test
