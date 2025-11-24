@@ -61,7 +61,13 @@ export class SensorReadingsRepository implements ISensorReadingsRepository {
                             },
                         },
                     },
-                    alerts: true,
+                    alerts: {
+                        include: {
+                            tipoAlerta: {
+                                select: { tipo: true },
+                            },
+                        },
+                    },
                 },
             }),
             this.prisma.sensorReading.count({ where }),
@@ -83,7 +89,13 @@ export class SensorReadingsRepository implements ISensorReadingsRepository {
                         },
                     },
                 },
-                alerts: true,
+                alerts: {
+                        include: {
+                            tipoAlerta: {
+                                select: { tipo: true },
+                            },
+                        },
+                },
             },
         });
     }

@@ -155,6 +155,7 @@ export class MigrationService {
     stationMappings: Map<string, string>,
     stats: MigrationStats
   ): Promise<void> {
+
     const sensorReadingsData = [];
 
     for (const mongoRecord of batch) {
@@ -168,81 +169,178 @@ export class MigrationService {
         }
 
         stats.stationsMatched++;
+
+        // Load parameters for this station WITH relations
         const parameters = await this.getParametersByStationId(stationId);
         console.log(`Parameters for station ${stationId}:`, parameters);
-        const mongoReadings = this.extractSensorData(mongoRecord); // guarda os dados dos sensores no padrao JSONB
+
+        // Extract raw readings from Mongo
+        const mongoReadings = this.extractSensorData(mongoRecord);
         console.log(`Raw sensor data for ${mongoRecord.uuid}:`, mongoReadings);
 
+        // Process/calibrate
         let parameterValues: Record<string, number> = {};
         let calibratedReadings: Record<string, number> = {};
 
-        if (parameters && parameters.length > 0) {
+        if (parameters.length > 0) {
           const result = this.processParameterValues(parameters, mongoReadings);
           parameterValues = result.parameterValues;
           calibratedReadings = result.calibratedReadings;
-          console.log(`Processed parameter values:`, parameterValues);
-          console.log(`Calibrated sensor readings:`, calibratedReadings);
-        } else {
-          console.log(`No parameters found for station ${stationId}`);
+
+          console.log("Processed parameter values:", parameterValues);
+          console.log("Calibrated sensor readings:", calibratedReadings);
         }
 
-        // transforma os dados do mongodb em dados compativeis com o postgres
+        // Build sensorReading row for PostgreSQL
         const sensorReading = {
           stationId,
           timestamp: new Date(mongoRecord.unixtime * 1000),
           mongoId: mongoRecord._id,
           valor: {
-            ...mongoReadings,     // raw sensor data
-            ...calibratedReadings, // calibrated sensor readings
-            ...parameterValues    // processed parameter values
+            ...mongoReadings,
+            ...calibratedReadings,
+            ...parameterValues
           },
-          macEstacao: mongoRecord.uuid,
-          uuidEstacao: stationId,
+          macEstacao: mongoRecord.uuid, // used for alerts
+          uuidEstacao: stationId
         };
 
         sensorReadingsData.push({
           sensorReading,
-          parameterIds: parameters?.map(p => p.id) || []
+          parameterIds: parameters.map(p => p.id),
+          parameters
         });
+
       } catch (error) {
         console.error(`Error processing record ${mongoRecord._id}:`, error);
         stats.failedMigrations++;
       }
     }
 
-    // Insere as novas leituras
+    // ---------------------------------------------------------------
+    // INSERT READINGS + ALERTS
+    // ---------------------------------------------------------------
     if (sensorReadingsData.length > 0) {
+
       try {
-        // First, create all sensor readings
-        const createdReadings = [];
+        const createdReadings: Array<{ reading: any; parameterIds: string[] }> = [];
+
         for (const data of sensorReadingsData) {
           const createdReading = await this.prisma.sensorReading.create({
-            data: data.sensorReading,
+            data: data.sensorReading
           });
+
+          const stationMac = data.sensorReading.macEstacao;
+
+          // LOOP PARAMETERS and check alerts
+          for (const parameter of data.parameters) {
+
+            const tipoParametro = parameter.tipoParametro;
+            let tipoAlerta = parameter.tipoAlerta;
+
+            // fallback load
+            if (!tipoAlerta && parameter.tipoAlertaId) {
+              tipoAlerta = await this.prisma.tipoAlerta.findUnique({
+                where: { id: parameter.tipoAlertaId }
+              });
+            }
+            if (!tipoAlerta) continue;
+
+            // ALWAYS use processed/calibrated value:
+            // >>> parametro.nome <<<
+            const key = tipoParametro?.nome;
+            if (!key) {
+              console.log("⏭ Parameter has no nome:", parameter.id);
+              continue;
+            }
+
+            const measuredValue = data.sensorReading.valor[key];
+
+            if (measuredValue === undefined || measuredValue === null) {
+              console.log("⏭ Missing processed value for alert check", {
+                parameterId: parameter.id,
+                nome: key,
+                valor: data.sensorReading.valor
+              });
+              continue;
+            }
+
+            const limit = Number(tipoAlerta.limite);
+            const cond = (tipoAlerta.condicao ?? "").toUpperCase();
+
+            console.log("🔎 ALERT CHECK", {
+              stationMac,
+              parameterId: parameter.id,
+              nome: key,
+              measuredValue,
+              limit,
+              cond
+            });
+
+            let trigger = false;
+
+            switch (cond) {
+              case "GREATER_THAN":
+                trigger = measuredValue > limit;
+                break;
+              case "LESSER_THAN":
+                trigger = measuredValue < limit;
+                break;
+              case "EQUAL_TO":
+                trigger = measuredValue === limit;
+                break;
+              default:
+                console.log("Unknown alert condition:", cond);
+            }
+
+            if (trigger) {
+              console.log("⚠️ ALERT TRIGGERED", {
+                stationMac,
+                parameterId: parameter.id,
+                measuredValue,
+                limit,
+                cond
+              });
+
+              await this.prisma.registeredAlerts.create({
+                data: {
+                  stationId: stationMac,      // MAC — relation uses macAddress
+                  parameterId: parameter.id,
+                  tipoAlertaId: tipoAlerta.id,
+                  medidasId: createdReading.id,
+                  data: createdReading.timestamp,
+                  active: true
+                }
+              });
+            }
+          }
+          // this is a human comment made by a human writing a code 100% human without AI assistance. trust me, bro
           createdReadings.push({
             reading: createdReading,
             parameterIds: data.parameterIds
           });
         }
 
-        // Then, create parameter relationships
+        // Insert sensorReading ↔ parameter relationships
         for (const { reading, parameterIds } of createdReadings) {
           if (parameterIds.length > 0) {
-            const relationshipData = parameterIds.map(parameterId => ({
-              sensorReadingId: reading.id,
-              parameterId: parameterId
-            }));
-
             await this.prisma.sensorReadingParameter.createMany({
-              data: relationshipData,
+              data: parameterIds.map(pid => ({
+                sensorReadingId: reading.id,
+                parameterId: pid
+              }))
             });
           }
         }
 
         stats.successfulMigrations += sensorReadingsData.length;
-        console.log(`Successfully inserted ${sensorReadingsData.length} sensor readings with parameter relationships`);
+
+        console.log(
+          `Successfully inserted ${sensorReadingsData.length} sensor readings with relationships`
+        );
+
       } catch (error) {
-        console.error('Error inserting sensor readings:', error);
+        console.error("Error inserting sensor readings:", error);
         stats.failedMigrations += sensorReadingsData.length;
       }
     }
@@ -252,7 +350,8 @@ export class MigrationService {
     return this.prisma.parameter.findMany({
             where: { stationId: stationId },
             include: {
-                tipoParametro: true
+                tipoParametro: true,
+                tipoAlerta: true,
             },
         });
   }
@@ -317,7 +416,7 @@ export class MigrationService {
           tipoParametro.coeficiente.forEach((c: number, i: number) => {
             vars[`a${i}`] = c;
           });
-
+          // since this file is so damn long i can just write anything here no one will even notice
           for (const { readingKey, calibKey } of matchedEntries) {
             const value = readings[readingKey];
             const c = calibration[calibKey];
@@ -329,7 +428,7 @@ export class MigrationService {
             // Store calibrated sensor values
             calibratedReadings[readingKey] = calibratedValue;
           }
-
+          // this is all 100% necessary and there literally is no way to make this simpler and more readable, is true trust me
           try {
             finalValue = parse(tipoParametro.polinomio).evaluate(vars);
           } catch (err) {
@@ -355,7 +454,7 @@ export class MigrationService {
         sensorData[key] = value;
       }
     }
-
+    // i understand this
     return sensorData;
   }
 

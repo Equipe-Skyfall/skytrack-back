@@ -78,12 +78,14 @@ export class SensorReadingsService {
     private mapToAlertDto(alert: any): RegisteredAlertDto {
         return {
             id: alert.id,
+            alert_name: alert.tipoAlerta.tipo,
             data: alert.data,
             stationId: alert.stationId,
             parameterId: alert.parameterId,
             tipoAlertaId: alert.tipoAlertaId,
             medidasId: alert.medidasId ?? undefined,
             createdAt: alert.createdAt,
+            active: alert.active,
         }
     }
 }
